@@ -1,6 +1,6 @@
 # Base Quest Fixed Mainnet 1.1.0 — Remix + MetaMask
 
-Read START-HERE-FA.md first. This release needs only a browser, GitHub, Remix and MetaMask for deployment. No private key, seed phrase, local .env or local terminal is required.
+Read [START-HERE.md](START-HERE.md) first. This release needs only a browser, GitHub, Remix and MetaMask for deployment. No private key, seed phrase, local .env or local terminal is required.
 
 - Contract for Remix: remix/BaseQuestMilestones.sol (standalone, no imports).
 - Compiler: Solidity 0.8.24, optimizer enabled / 200 runs, EVM paris, viaIR off.
