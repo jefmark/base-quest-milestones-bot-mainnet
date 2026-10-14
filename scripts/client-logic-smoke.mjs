@@ -194,6 +194,40 @@ keydown({ code: 'Space', target: { closest: () => true },
 assert.equal(prevented, false);
 assert.equal(game.snapshot().running, false, 'space on a button must not jump/restart the game');
 
+// Retry difficulty must survive all three lives and the full cooldown.
+for (const milestone of Array.from({ length: 12 }, (_, i) => i + 1)) {
+  game.destroy(); rafQueue.length = 0;
+  storage.delete('bqmFixed968_RetryLock');
+  highestMinted = milestone - 1;
+  game = createGame(canvas, callbacks); frame();
+  const session = { ...verifiedSession, milestone, nonce: milestone + 20,
+    startedAt: Math.floor(fakeWall / 1000) };
+  assert.equal(game.start(session), true);
+  let count = 0;
+  while (game.snapshot().lives > 0 && count++ < 12000) frame();
+  const beforeRetry = game.snapshot();
+  assert.equal(beforeRetry.lives, 0, `stage ${milestone}: three lives exhausted`);
+  assert.equal(game.start(session), false, 'cooldown cannot be bypassed');
+  // Advance real frames so anti-cheat timing remains realistic.
+  count = 0;
+  while (!game.snapshot().running && count++ < 3700) frame();
+  const afterRetry = game.snapshot();
+  assert.equal(afterRetry.running, true, 'verified run automatically resumes');
+  assert.equal(afterRetry.lives, 3);
+  assert.equal(afterRetry.retrySeconds, 0);
+  assert.ok(afterRetry.stage.milestone >= beforeRetry.stage.milestone);
+  assert.ok(afterRetry.worldSpeed >= beforeRetry.worldSpeed,
+    `stage ${milestone}: retry must not reduce world speed`);
+  for (let i = 0; i < 30; i++) frame();
+  assert.ok(game.snapshot().worldSpeed >= beforeRetry.worldSpeed,
+    'score recalculation must not undo the restored difficulty');
+  assert.equal(game.start({ ...session, nonce: session.nonce + 100 }), true);
+  const fresh = game.snapshot();
+  assert.equal(fresh.stage.milestone, milestone);
+  assert.equal(fresh.worldSpeed, fresh.stage.speed, 'a new run must not inherit old distance');
+}
+console.log('Retry difficulty regressions passed for all 12 stages.');
+
 Math.random = originalRandom;
 game.destroy();
 console.log('Client gameplay smoke test passed: same-run lives, persisted 59-second lock, input lockout, protocol checkpoint recovery, and hidden-tab anti-cheat recovery.');
