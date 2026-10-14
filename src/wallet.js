@@ -1081,7 +1081,7 @@ async function getWalletConnectProvider() {
   const projectId = walletConnectProjectId();
   if (!projectId) {
     throw new Error(
-      'WalletConnect Project ID is missing in the deployed build. Set VITE_WALLETCONNECT_PROJECT_ID in GitHub Actions Variables, rebuild and redeploy. A website-link QR cannot replace real WalletConnect pairing.'
+      'WalletConnect Project ID is missing in the deployed build. Set walletConnectProjectId in site-settings.json, then rebuild and redeploy the website. A website-link QR cannot replace real WalletConnect pairing.'
     );
   }
 
@@ -1571,7 +1571,7 @@ async function handleWalletPick(walletId) {
   try {
     if (walletId === WALLETCONNECT_ID) {
       if (!walletConnectProjectId()) {
-        throw new Error('WalletConnect requires VITE_WALLETCONNECT_PROJECT_ID in GitHub Actions Variables and a new deployment. The website QR is not a valid wallet pairing QR.');
+        throw new Error('WalletConnect requires walletConnectProjectId in site-settings.json and a new website deployment. The website QR is not a valid wallet pairing QR.');
       }
 
       setPickerMessage('Opening official WalletConnect wallet explorer and pairing QR...');
