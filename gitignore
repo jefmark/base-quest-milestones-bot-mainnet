@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+artifacts/
+cache/
+coverage/
+typechain-types/
+.DS_Store
+# Never commit deployment credentials or wallet key material.
+*.pem
+*.key
+*.p12
+*.pfx
+keystore*.json
+secrets/
+.secrets/
+
+# Keep local operation records private.
+operations/
