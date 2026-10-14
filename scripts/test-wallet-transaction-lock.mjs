@@ -130,7 +130,7 @@ console.log('Account-switch race regression passed: no transaction after identit
       BrowserProvider:class {constructor(raw){this.raw=raw;}},
       window:{setTimeout:fn=>{fn();return 1;}}, withTimeout:async p=>p,
       attachProviderListeners:()=>{}, persistWalletSession:()=>{}, emitWalletChanged:()=>events.push(state.account),
-      ensureCorrectNetwork:async options=>{assert.equal(options.interactive,false);if(networkError)throw Error('RPC offline');state.chainOk=true;},
+      ensureCorrectNetwork:async options=>{assert.equal(options.interactive,true);if(networkError)throw Error('RPC offline');state.chainOk=true;},
       console:{warn:()=>{}},
     });
     vm.runInContext(`let walletRestorePromise=null;let walletConnectionRevision=0;${restoreSource}`,context);
@@ -151,4 +151,60 @@ console.log('Account-switch race regression passed: no transaction after identit
   }
   const f=fixture();await Promise.all([f.restore(),f.restore()]);assert.equal(f.calls.length,1,'Concurrent restores must share account lookup');
   console.log('Wallet refresh regressions passed: authorized/changed accounts, delayed injection, wrong network, locked wallet, wrong extension, cancellation, no session, WalletConnect and concurrent restore.');
+}
+
+// Exercise production network switching, including nested MetaMask errors.
+{
+  const networkSource = source.slice(source.indexOf('function walletChainErrorCode('),
+    source.indexOf('export async function requestBotNetwork(')).replaceAll('export async', 'async');
+  async function scenario({ missing=false, reject=false, passive=false, correct=false, change=false, wc=false }={}) {
+    let chain=correct?'0x2a5':'0x1', added=false;
+    const calls=[];
+    const account='0x1111111111111111111111111111111111111111';
+    const state={account,chainOk:true,connectionType:wc?'walletconnect':'injected'};
+    const provider={request:async request=>{
+      calls.push(request);
+      if(request.method==='eth_chainId')return chain;
+      if(request.method==='wallet_addEthereumChain'){added=true;return null;}
+      if(request.method==='wallet_switchEthereumChain'){
+        if(change){state.account='0x2222222222222222222222222222222222222222';return null;}
+        if(reject)throw {code:4001,message:'User rejected'};
+        if(missing&&!added)throw {code:-32603,data:{originalError:{code:4902}}};
+        chain=request.params[0].chainId;return null;
+      }
+      throw Error(`Unexpected request ${request.method}`);
+    }};
+    state.eip1193Provider=provider;
+    const ctx=vm.createContext({walletState:state,walletConnectionRevision:0,
+      TARGET_CHAIN_ID:677,TARGET_CAIP_CHAIN_ID:'eip155:677',
+      CONFIG:{chainName:'BOT Mainnet',nativeCurrencyName:'BOT',nativeCurrencySymbol:'BOT',
+        nativeCurrencyDecimals:18,rpcUrl:'https://rpc.botchain.ai',explorerUrl:'https://explorer.botchain.ai'},
+      normalize:v=>String(v||'').toLowerCase(),toHexChainId:n=>`0x${Number(n).toString(16)}`,
+      isAddress:v=>/^0x[0-9a-f]{40}$/i.test(v),normalizeRpcError:e=>e,
+      BrowserProvider:class {async getSigner(a){return {getAddress:async()=>a};}},
+      createContractIfReady:()=>{},window:{setTimeout:fn=>fn()}});
+    vm.runInContext(networkSource,ctx);
+    const run=()=>vm.runInContext(`ensureCorrectNetwork({interactive:${!passive}})`,ctx);
+    if(reject||change||wc) await assert.rejects(run);
+    else assert.equal(await run(),!passive||correct);
+    return {calls,state};
+  }
+  for(const missing of [false,true]) {
+    const {calls,state}=await scenario({missing});
+    assert.equal(state.chainOk,true);
+    assert.equal(calls.filter(c=>c.method==='wallet_addEthereumChain').length,Number(missing));
+    if(missing){
+      const params=calls.find(c=>c.method==='wallet_addEthereumChain').params[0];
+      assert.equal(params.chainId,'0x2a5'); assert.equal(params.nativeCurrency.symbol,'BOT');
+      assert.equal(calls.filter(c=>c.method==='wallet_switchEthereumChain').length,2);
+    }
+  }
+  for(const options of [{reject:true},{passive:true},{correct:true},{wc:true},{change:true}]) {
+    const {calls,state}=await scenario(options);
+    if(!options.correct) assert.equal(state.chainOk,false,'Failed setup must clear stale network readiness');
+    assert.equal(calls.some(c=>c.method==='wallet_addEthereumChain'),false);
+    if(options.passive||options.correct||options.wc)
+      assert.equal(calls.some(c=>c.method==='wallet_switchEthereumChain'),false);
+  }
+  console.log('Network regressions passed: switch, nested 4902, add-then-switch, rejection, passive checks, correct chain, WalletConnect approval and account changes.');
 }
