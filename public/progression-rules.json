@@ -1,0 +1,138 @@
+{
+  "version": "bot-uups-v1",
+  "lives": 3,
+  "unlockRule": "previous protocol mint required",
+  "resumeFromWallet": true,
+  "localStorageIsCacheOnly": true,
+  "stages": [
+    {
+      "milestone": 1,
+      "requires": []
+    },
+    {
+      "milestone": 2,
+      "requires": [
+        1
+      ]
+    },
+    {
+      "milestone": 3,
+      "requires": [
+        1,
+        2
+      ]
+    },
+    {
+      "milestone": 4,
+      "requires": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "milestone": 5,
+      "requires": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "milestone": 6,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "milestone": 7,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "milestone": 8,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "milestone": 9,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "milestone": 10,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "milestone": 11,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "milestone": 12,
+      "requires": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    }
+  ],
+  "verifiedRunRequiredForMint": true,
+  "verifiedRunStorage": "Independent BOT Chain direct contract (968 testnet; 677 mainnet)",
+  "githubPagesRole": "static frontend only",
+  "progressionSource": "mintedByProtocol"
+}

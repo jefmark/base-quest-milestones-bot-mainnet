@@ -1,0 +1,272 @@
+[
+  {
+    "file": "contracts/BaseQuestMilestones.sol",
+    "sha256": "ea7d37ed43413397f0c0a0457550b7bafe65324c6842266529f3982a755abebd",
+    "unchanged": true
+  },
+  {
+    "file": "src/game.js",
+    "sha256": "b2951fbf0e9c3f26f9ec4615290d9b7c40194ceca57152710e802d4425c3630b",
+    "unchanged": true
+  },
+  {
+    "file": "src/wallet.js",
+    "sha256": "d4a507e3307555c6210f996fa2f95b0171f3d550539b559bee4fdedfbabb7466",
+    "unchanged": true
+  },
+  {
+    "file": "src/main.js",
+    "sha256": "142eec419b808536c0b08d39f7bbcdda0fcc908af907df44faa464a8d6184f04",
+    "unchanged": true
+  },
+  {
+    "file": "src/style.css",
+    "sha256": "467e72362457d8e0b54e5b18a97947091c68d58774ce0f149a365c60a08997b6",
+    "unchanged": true
+  },
+  {
+    "file": "public/favicon.svg",
+    "sha256": "6b89e7df3e514641e4280af66b88d385d2827983cde8fe801924a3d8ff86f002",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/1.json",
+    "sha256": "093ce20dab508994c322f30e8bc0e5c9d4be69a9f07d3c435498b81309032249",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/10.json",
+    "sha256": "d25a23f9d0c1484a907d7ac866d73a9d7012cb05b3fac4d7d79c41785b9a7a7f",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/11.json",
+    "sha256": "3ec24c068cd7f2454e9c296cbb57db1e36b69d61b20a5d53ffd683e741f728ac",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/12.json",
+    "sha256": "f5d2f851b10ab9ae81de9a600ac14159aaeb4d8adba024a781f294ad573c4ad4",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/2.json",
+    "sha256": "188e52b12432391d8697dc43426219656e6eb148223b3cb411aa25b27c0aaa9e",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/3.json",
+    "sha256": "922993bb24f62e8ed6e740cbdf7beb1e03c9f267172d78f9cfbe593a958b7fed",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/4.json",
+    "sha256": "4fcc79a542a331d67b4948bb442980d3e5d1e83f42b18ac9717b75780c4136fa",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/5.json",
+    "sha256": "394fbc80dd796225f9ba0d88cc2c13187c29f4695c29ad7696c7681d3f954bb1",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/6.json",
+    "sha256": "8a3c3da2155ca2f56ec3ce96b733dcd06b9afacf3724da4716a30b333262948c",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/7.json",
+    "sha256": "8b749b3bd05dc2d0ef2779f75481ec082be5e41383d67667ed909a8d47749ec7",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/8.json",
+    "sha256": "bfe266e531eb122c54d6204a20d0fa68f1069cf271d00671505fb2d1fe7dbdf4",
+    "unchanged": true
+  },
+  {
+    "file": "public/metadata/9.json",
+    "sha256": "e09bb38e84cbd0380f3af2f1081f7504ca21abf38ae535195c11ac64081496ab",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/1.png",
+    "sha256": "c73f46bfeaa266344aa86efc6d2ed15c066764b4f724459d2a3979e86e9c1a92",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/10.png",
+    "sha256": "2254d9a41b6ced8b58c4b1b42c1a8841e36426dbf94e4c5b306c752964e4c71b",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/11.png",
+    "sha256": "7229ffa63ac358f33f076089a5b095409ead98b36307626f3dfdcac239ceb2e5",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/12.png",
+    "sha256": "11a2c05208662cdfd4e604d63f8f6a92b3cba5b8c2947700b0504277c6d26d24",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/2.png",
+    "sha256": "02088012bf0502540f6f2554e4cacb05d97edec18700e57af30d23d0fc39bb82",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/3.png",
+    "sha256": "394e95e9e5b51575d2cf8943deeb0ddb329bad944ffaff82aba7b7719125e9ac",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/4.png",
+    "sha256": "30c4e25292559bb0ed187b890cc4b7c23903c4f6ec41b169718ea5e711e22952",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/5.png",
+    "sha256": "a535edfc64ba5136396811090e1e230979dd8bbb67f120e83bfae234caa001ba",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/6.png",
+    "sha256": "4feebb24931b783ee25e3be447592bf1c7214dd856d09429deea3c4f8059ff13",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/7.png",
+    "sha256": "de2c5e9525b0d565d3b1c2356acd76d28c6a2188e36a45b219dcd487ce11b2c6",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/8.png",
+    "sha256": "8e70cd118061b557de0d959d0cf33b668b7962d6860d1ae0781a0fa4be2d2802",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/9.png",
+    "sha256": "6083beb1e8cfdc603d9e03412654cfba626c676ef015dbcee5fe3fca00196dd7",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/1.webp",
+    "sha256": "42cfc8ddf485b07ace785e3a896f19a6d49bc68d125d221b5dbafe7a657f6e09",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/10.webp",
+    "sha256": "ae62ec1fd5fafde909edae6205eacbe596b181fd25b54b6f31f5588d0dba1aaf",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/11.webp",
+    "sha256": "db5d96b8570508b2abed8165d3a22c8628e691e46a467cd8134a54f1ad6cd9ad",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/12.webp",
+    "sha256": "8342140638e1f675a9dd857cf95d43831937e5f59d43faee80d7436a520d791a",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/2.webp",
+    "sha256": "6d05854fca9fbb2ad08d16e485ccc627955aff367ac88fd39591c7b0b5d2ca40",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/3.webp",
+    "sha256": "4c7c5ce4c0662792dfe1aa281559c6c34ec829632695c18a0f9697a07b8fd82b",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/4.webp",
+    "sha256": "a0d79fdf3b2b0fd1c15fe1b1095a87fab286e692cfd08f62da7048607d3bb83e",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/5.webp",
+    "sha256": "222432e6fed67aa227ba66e38e03924e3ff8417d5bc688f55fb6a0e6f97d501c",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/6.webp",
+    "sha256": "9bf4a8a25cd8f0c1c4965a0670742a38c690acfd8ea2dba878c30aa766c08d02",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/7.webp",
+    "sha256": "26f4b399f0d876414dd087bd0b0fbc1015aff54d4609420200e9dce96cb636af",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/8.webp",
+    "sha256": "60c2acb2ccba61bcf3d819a4b9218682fe0696293f90d6f3923faaadf3adb6b8",
+    "unchanged": true
+  },
+  {
+    "file": "public/nft/thumbs/9.webp",
+    "sha256": "32b33a68aa42f1c0c8561e0a264529c1ff1968f190d5c57f2901d3c5ca93d28b",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/about.html",
+    "sha256": "082aaccc3885875e5ba715a7851fa6087af0aaebda1972fdc1f145a9efc8c54d",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/community.html",
+    "sha256": "bcbcf882512edbb068af8b0bd03023cfe0f4ba664685c9a1f908c492167795ae",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/contact.html",
+    "sha256": "ccf80fc0a40362cdbad0d184d718e71930cf713f0c693b2f6f78a9f5a7916f8e",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/dashboard.html",
+    "sha256": "52ed55e0423d379054e3366b4bf6f7a81f38c6463957e3d476a5c97106b83168",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/home.html",
+    "sha256": "97bbf217c3264b36280da4d18cc56fb86e34806c0a56175380ab7e218bf26d88",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/nfts.html",
+    "sha256": "5dabc862595b5c80aa873381833a4ed5b7b4ef58f08d441b035a9958838b401c",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/rules.html",
+    "sha256": "453508aaec8f95920115f052d3f107a69b35cfe6d2e6f178218c5a9e4c6a15d6",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages/xp.html",
+    "sha256": "d9dfb7a55d91f9587391b609cb041b8333af42677f29d5c4a3d5009b05c6a6d9",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages.css",
+    "sha256": "c9bac6d035116b63ab6a488a4892220aa50e0bbdff8d34f0c37e9a2b21512581",
+    "unchanged": true
+  },
+  {
+    "file": "public/pages.js",
+    "sha256": "ab6608d6c3efebb7bdc2bfa7244316e3a5b8c16e485f23ca574babf9c26010f9",
+    "unchanged": true
+  },
+  {
+    "file": "public/progression-rules.json",
+    "sha256": "e71cf397750cfc5d7ee29e2407f700bf906cdcc6a0641b932eac8b4187dada68",
+    "unchanged": true
+  },
+  {
+    "file": "public/site.webmanifest",
+    "sha256": "a2efc5273d4b4d3c3deaf4a129fe54aee6c2cb7570bf74833d0f8903f4b83be4",
+    "unchanged": true
+  }
+]

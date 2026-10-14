@@ -1,0 +1,47 @@
+(node:301) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> base-quest-milestones-bot-mainnet@1.1.0 test
+> hardhat test
+
+(node:314) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+Warning: Function state mutability can be restricted to view
+   --> contracts/BaseQuestMilestones.sol:277:5:
+    |
+277 |     function renounceOwnership() public override onlyOwner {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+
+Compiled 17 Solidity files successfully (evm target: paris).
+
+
+  Direct fixed contract: single-wallet gameplay and admin
+    ✔ has no initializer, upgrade entry point or ERC1967 implementation
+    ✔ rejects an accidental second start without replacing the active run (71ms)
+    ✔ rejects mint before start, wrong order, stale nonce, replay, time or score cheats (66ms)
+    ✔ rejects admin configurations that break sequential score/time requirements (47ms)
+    ✔ keeps the SAME nonce through successive mints, preserves metadata per milestone (46ms)
+    ✔ protects pause, ownership transfer, cooldown config, with one owner (44ms)
+    ✔ independent direct contracts retain isolated NFT state for the future mainnet deployment (212ms)
+    ✔ blocks minting while paused, then allows the same valid run to continue
+    ✔ does not accept payment and never counts external or legacy NFTs
+    ✔ completes all 12 milestones with one run, then consumes the nonce (133ms)
+    ✔ expires an abandoned run and invalidates canceled run and old nonce
+
+  Shipped frontend/contract integration
+    ✔ all frontend functions and events match the compiled ABI
+    ✔ production wallet preflight accepts the actual deployment and rejects an empty address (49ms)
+
+  Standalone Remix source (no imports, no private key configuration)
+    ✔ compiles with 0.8.24/paris/200, matches the original runtime and mints through a wallet signer (5463ms)
+
+  Additional protocol regressions
+    ✔ prevents permanent accidental renunciation and excessive cooldown
+    ✔ blocks receiver callback reentrancy and preserves exactly one mint (47ms)
+    ✔ documents that plausible fabricated browser scores still mint (NOT cryptographic anti-cheat)
+
+
+  17 passing (9s)
+

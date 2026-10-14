@@ -1,0 +1,49 @@
+{
+  "name": "base-quest-milestones-bot-mainnet",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Direct non-upgradeable BOT NFT runner. Single-wallet gameplay and single-owner administration.",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "dev": "vite",
+    "check:syntax": "node --no-warnings --experimental-vm-modules scripts/check-syntax.mjs",
+    "validate:project": "node scripts/validate-project.mjs",
+    "test:client": "node --no-warnings --experimental-vm-modules scripts/client-logic-smoke.mjs",
+    "test:static": "node scripts/test-static-release.mjs",
+    "check": "npm run check:syntax && npm run validate:project && npm run test:client && npm run test:wallet-lock && npm run test:static && npm run test:build-env && npm run check:release && npm run test:settings",
+    "build": "npm run check && vite build && node scripts/finalize-metadata.mjs && node scripts/finalize-site.mjs",
+    "preview": "vite preview",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "check:release": "node scripts/check-release-content.mjs",
+    "check:imports": "node scripts/validate-imports.mjs",
+    "test:build-env": "node scripts/test-build-env.mjs",
+    "test:wallet-lock": "node scripts/test-wallet-transaction-lock.mjs",
+    "test:remix": "hardhat test test/Remix.test.cjs",
+    "test:settings": "node scripts/test-site-settings.mjs"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.0.2",
+    "@walletconnect/ethereum-provider": "2.23.10",
+    "@web3icons/core": "4.0.51",
+    "ethers": "6.17.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "3.0.8",
+    "@nomicfoundation/hardhat-verify": "2.0.14",
+    "dotenv": "16.4.7",
+    "hardhat": "2.26.3",
+    "solc": "0.8.24",
+    "vite": "6.4.4"
+  },
+  "overrides": {
+    "undici": "6.29.0",
+    "adm-zip": "0.6.1",
+    "tmp": "0.2.7",
+    "mocha": "12.0.3",
+    "serialize-javascript": "7.1.2"
+  }
+}
