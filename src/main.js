@@ -548,7 +548,7 @@ async function resolveNextSessionAfterMint(pending) {
   throw new Error(
     `NFT #${pending.milestone} was confirmed, but no active run authorization for #${pending.milestone + 1} was found. ` +
     `Configured contract: ${CONFIG.contractAddress}. Mint transaction: ${txLink}.` +
-    ' Check the deployed UUPS contract address (not implementation) in the new repository configuration.' +
+    ' Check the directly deployed BaseQuestMilestones contract address for the selected network in site-settings.json, then rebuild and redeploy the website.' +
     ' No extra startRun or duplicate mint should be sent.' + reason
   );
 }
