@@ -1,8 +1,10 @@
 [
   {
     "file": "contracts/BaseQuestMilestones.sol",
-    "sha256": "ea7d37ed43413397f0c0a0457550b7bafe65324c6842266529f3982a755abebd",
-    "unchanged": true
+    "sha256": "f216ba5e817418073bcb5396ed35645d5d698c1d204b6cb8daa2b8ac093f0ea7",
+    "unchanged": false,
+    "previous_sha256": "ea7d37ed43413397f0c0a0457550b7bafe65324c6842266529f3982a755abebd",
+    "reason": "2026-10-14 pre-deployment review: wallet network/lifecycle fixes or metadata URI normalization. See TEST-RESULTS.md."
   },
   {
     "file": "src/game.js",
@@ -13,10 +15,10 @@
   },
   {
     "file": "src/wallet.js",
-    "sha256": "91644910366d42ae4bd1605176b54440e0f257a028e3179797af21292ca087ae",
+    "sha256": "f7819d454f53c4a53f25c9ae819086f8a650aa554e0210fb54defb0f257ce59a",
     "unchanged": false,
-    "previous_sha256": "45435f3c1fde0c99b63a9d8cd99b8e70dbfe81500ef0f4f31e408c4b3efd7725",
-    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
+    "previous_sha256": "91644910366d42ae4bd1605176b54440e0f257a028e3179797af21292ca087ae",
+    "reason": "2026-10-14 pre-deployment review: wallet network/lifecycle fixes or metadata URI normalization. See TEST-RESULTS.md."
   },
   {
     "file": "src/main.js",
@@ -278,5 +280,12 @@
     "file": "public/site.webmanifest",
     "sha256": "a2efc5273d4b4d3c3deaf4a129fe54aee6c2cb7570bf74833d0f8903f4b83be4",
     "unchanged": true
+  },
+  {
+    "file": "remix/BaseQuestMilestones.sol",
+    "sha256": "9ec05caf8c53ae1e028d0064babc3500ab56a8f64a7244a060005f6441091ecd",
+    "previous_sha256": "1c66957d193a360c439bf9f519c47a9586984b6443c35c934182e1b6c281d9a8",
+    "unchanged": false,
+    "reason": "Generated standalone equivalent of the reviewed contract; parity tested."
   }
 ]
