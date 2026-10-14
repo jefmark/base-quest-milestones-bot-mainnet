@@ -911,8 +911,10 @@ export async function restoreWalletSession() {
     persistWalletSession(walletState.connectionType, activeAccount, walletName, match);
     emitWalletChanged();
 
+    // One network request on restoration; rejected requests retain the connected
+    // account and can be retried with the existing network button.
     try {
-      await ensureCorrectNetwork({ interactive: false });
+      await ensureCorrectNetwork({ interactive: true });
     } catch (err) {
       // The wallet remains connected; the existing Add/Switch Network control
       // handles wrong network or provider-specific signer errors interactively.
@@ -1656,10 +1658,22 @@ function walletChainErrorCode(err) {
 }
 
 function isMissingChainError(err) {
-  const code = walletChainErrorCode(err);
-  if (code === 4902 || String(code) === '4902') return true;
-  const message = normalize(err?.message || err?.shortMessage || err?.data?.message);
-  return /unrecognized.chain|unknown.chain|chain.not.added|network.not.added|not.been.added|unrecognized.network/.test(message);
+  // Wallets may wrap 4902 inside -32603/data/originalError/cause.
+  const queue = [err], seen = new Set();
+  let missing = false;
+  while (queue.length && seen.size < 20) {
+    const item = queue.shift();
+    if (!item || typeof item !== 'object' || seen.has(item)) continue;
+    seen.add(item);
+    const code = String(item.code ?? '');
+    // A user rejection must never open a second add-network prompt.
+    if (code === '4001' || code === 'ACTION_REJECTED') return false;
+    if (code === '4902') missing = true;
+    const message = normalize(item.message || item.shortMessage);
+    if (/unrecognized.chain|unknown.chain|chain.not.added|network.not.added|not.been.added|unrecognized.network/.test(message)) missing = true;
+    queue.push(item.data, item.originalError, item.cause, item.error);
+  }
+  return missing;
 }
 
 function approvedWalletConnectChain(provider) {
@@ -1691,9 +1705,15 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
     return false;
   }
 
+  const initialAccount = normalize(walletState.account);
+  const assertCurrentConnection = () => {
+    if (activeProvider !== walletState.eip1193Provider || initialAccount !== normalize(walletState.account)) {
+      throw new Error('Wallet changed during network setup. Retry with the selected wallet.');
+    }
+  };
   const target = normalize(toHexChainId(TARGET_CHAIN_ID));
-  // A WalletConnect pairing can be established without the optional Base chain.
-  // The client must never treat that as approval to sign Base transactions.
+  // A WalletConnect pairing can be established without the optional target chain.
+  // The client must never treat that as approval to sign target-chain transactions.
   if (!approvedWalletConnectChain(activeProvider)) {
     walletState.chainOk = false;
     walletState.signer = null;
@@ -1706,6 +1726,7 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
   }
 
   let current = await currentWalletChain(activeProvider);
+  assertCurrentConnection();
   if (current !== target && !interactive) {
     walletState.chainOk = false;
     walletState.signer = null;
@@ -1714,12 +1735,16 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
   }
 
   if (current !== target) {
+    walletState.chainOk = false;
+    walletState.signer = null;
+    walletState.contract = null;
     try {
       await activeProvider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: target }],
       });
     } catch (switchErr) {
+      assertCurrentConnection();
       // Never add a new chain to a WalletConnect session: session namespaces
       // must already have been approved by the wallet itself.
       if (walletState.connectionType === 'walletconnect') throw normalizeRpcError(switchErr);
@@ -1746,6 +1771,7 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
 
       // EIP-3085 does not require automatic switching after network addition.
       current = await currentWalletChain(activeProvider);
+      assertCurrentConnection();
       if (current !== target) {
         try {
           await activeProvider.request({
@@ -1763,6 +1789,7 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
   // Confirm the actual chain ID instead of assuming the switch succeeded.
   for (let attempt = 0; attempt < 4; attempt += 1) {
     current = await currentWalletChain(activeProvider);
+    assertCurrentConnection();
     if (current === target) break;
     if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 200));
   }
