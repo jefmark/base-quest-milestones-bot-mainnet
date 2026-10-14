@@ -34,7 +34,7 @@ Open the website, metadata/1.json and nft/1.png. A working practice website befo
 
 ## 3. Deploy with Remix and MetaMask
 
-Open https://remix.ethereum.org and upload only remix/BaseQuestMilestones.sol. This standalone file includes its OpenZeppelin 5.0.2 dependencies and requires no network imports.
+Use the final reviewed source delivered with the 2026-10-14 pre-deployment patch. Open https://remix.ethereum.org and upload only remix/BaseQuestMilestones.sol. This standalone file includes its OpenZeppelin 5.0.2 dependencies and requires no network imports.
 
 In Solidity Compiler select:
 
@@ -109,3 +109,14 @@ Official references:
 - https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository
 - https://remix-ide.readthedocs.io/en/latest/run.html
 - https://dev-docs.botchain.ai/docs/Developers/quick-guide/
+
+
+## Pre-deployment patch (2026-10-14)
+
+The new wallet connection flow requests BOT network addition directly when the injected wallet is on a different chain, then verifies switching. Approve the request in the wallet; no site can bypass wallet approval. Correct-network restores do not request another addition. Concurrent requests are coalesced. WalletConnect requires an approved BOT session and does not gain custom-chain support merely from this patch.
+
+The standalone contract normalizes a missing trailing slash in the base metadata URI. Continue to supply the complete published /metadata/ directory. Compiler: 0.8.24, optimizer enabled with 200 runs, EVM paris, viaIR disabled. Select the BaseQuestMilestones contract, not one of the bundled dependency contracts. Use Browser Extension (called Injected Provider - MetaMask in older Remix interfaces), select BOT Mainnet 677 in the wallet, and leave Value at zero.
+
+Apply all replacement files, run the existing CI, then manually run Deploy Base Quest to GitHub Pages from Actions. The workflow uses workflow_dispatch; commits do not automatically publish. Preserve the three constructor arguments and exact source/compiler settings for later explorer verification.
+
+See the latest section of TEST-RESULTS.md for actual checks and remaining real-wallet tests. In particular, this review did not deploy to a public chain. Before irreversible mainnet deployment, validate this exact final version with your intended wallet on BOT testnet; prior tests of a different source are not a test of the final artifact.
