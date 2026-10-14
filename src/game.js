@@ -218,6 +218,7 @@ export function createGame(canvas, callbacks = {}) {
     stageIndex: Math.max(0, Number(callbacks.initialProgress?.runStage || callbacks.initialProgress?.unlockedStage || 1) - 1),
     milestoneUnlocked: Number(callbacks.initialProgress?.highestMilestone || 0),
     distance: 0,
+    difficultyFloorIndex: 0,
     shake: 0,
     lastPenalty: 0,
     obstacles: [],
@@ -337,6 +338,7 @@ export function createGame(canvas, callbacks = {}) {
     const checkpointScore = getCheckpointScore(value);
     state.score = checkpointScore;
     state.stageIndex = Math.min(STAGE_CONFIG.length - 1, value);
+    state.difficultyFloorIndex = state.stageIndex;
     state.milestoneUnlocked = value;
     state.integrity.scoreLedger = checkpointScore;
     callbacks.onUpdate?.(snapshot());
@@ -478,6 +480,7 @@ export function createGame(canvas, callbacks = {}) {
       mintBlockedReason: mintable && !validation.ok ? validation.message : '',
       nextRequirement: getNextRequirement(),
       stage: STAGE_CONFIG[state.stageIndex],
+      worldSpeed: STAGE_CONFIG[state.stageIndex].speed + Math.min(4, state.distance / 5000),
       playSeconds: state.completedPlaySeconds + playSeconds,
       runPlaySeconds: playSeconds,
       mintPaused: state.mintPaused,
@@ -501,6 +504,10 @@ export function createGame(canvas, callbacks = {}) {
   }
 
   function reset(verifiedSession = null) {
+    const previousSession = state.verifiedSession;
+    const previousStage = state.stageIndex;
+    const previousDistance = state.distance;
+    const retryingPractice = !previousSession && state.lives === 0;
     state.running = true;
     state.paused = false;
     state.mintPaused = false;
@@ -521,9 +528,19 @@ export function createGame(canvas, callbacks = {}) {
     const checkpointScore = getCheckpointScore(checkpointMilestone);
     state.score = checkpointScore;
     state.best = Math.max(0, safeStoredNumber(STORAGE_KEY, 0));
-    state.stageIndex = Math.min(STAGE_CONFIG.length - 1, checkpointMilestone);
+    // Keep difficulty when restarting the SAME authorized checkpoint. A new
+    // account, nonce or milestone gets its own stage baseline; never its score.
+    const sameCheckpoint = verified?.active && previousSession?.active
+      && verified.nonce === previousSession.nonce
+      && verified.milestone === previousSession.milestone
+      && String(verified.player).toLowerCase() === String(previousSession.player).toLowerCase()
+      && verified.challenge === previousSession.challenge;
+    const preserveDifficulty = sameCheckpoint || (!verified && retryingPractice);
+    state.difficultyFloorIndex = Math.min(STAGE_CONFIG.length - 1,
+      Math.max(checkpointMilestone, preserveDifficulty ? previousStage : 0));
+    state.stageIndex = state.difficultyFloorIndex;
     state.milestoneUnlocked = checkpointMilestone;
-    state.distance = 0;
+    state.distance = preserveDifficulty ? previousDistance : 0;
     state.shake = 0;
     state.lastPenalty = 0;
     state.obstacles = [];
@@ -841,7 +858,8 @@ export function createGame(canvas, callbacks = {}) {
     state.damageTexts = state.damageTexts.filter((d) => d.life > 0);
 
     const nextStage = STAGE_CONFIG.findIndex((s) => state.score < s.score);
-    state.stageIndex = nextStage === -1 ? STAGE_CONFIG.length - 1 : Math.max(0, nextStage);
+    state.stageIndex = Math.max(state.difficultyFloorIndex,
+      nextStage === -1 ? STAGE_CONFIG.length - 1 : Math.max(0, nextStage));
 
     // Collected orbs/obstacle passes can also cross the checkpoint threshold.
     announceScoreMilestones();
