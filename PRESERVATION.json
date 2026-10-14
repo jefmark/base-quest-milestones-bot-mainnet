@@ -1,10 +1,10 @@
 [
   {
     "file": "contracts/BaseQuestMilestones.sol",
-    "sha256": "f216ba5e817418073bcb5396ed35645d5d698c1d204b6cb8daa2b8ac093f0ea7",
+    "sha256": "62ef89b8594bb69b867af1514488afc1a82470faad96d3a41e4940075181283e",
     "unchanged": false,
-    "previous_sha256": "ea7d37ed43413397f0c0a0457550b7bafe65324c6842266529f3982a755abebd",
-    "reason": "2026-10-14 pre-deployment review: wallet network/lifecycle fixes or metadata URI normalization. See TEST-RESULTS.md."
+    "previous_sha256": "f216ba5e817418073bcb5396ed35645d5d698c1d204b6cb8daa2b8ac093f0ea7",
+    "reason": "Declare disabled renounceOwnership override view to resolve Solidity warning 2018; ownership renunciation remains disabled."
   },
   {
     "file": "src/game.js",
@@ -283,9 +283,9 @@
   },
   {
     "file": "remix/BaseQuestMilestones.sol",
-    "sha256": "9ec05caf8c53ae1e028d0064babc3500ab56a8f64a7244a060005f6441091ecd",
-    "previous_sha256": "1c66957d193a360c439bf9f519c47a9586984b6443c35c934182e1b6c281d9a8",
+    "sha256": "781de37c308fa6fbdad038f9788668c7f07d1d2a1a1af10f28d0c382d8a6194d",
+    "previous_sha256": "9ec05caf8c53ae1e028d0064babc3500ab56a8f64a7244a060005f6441091ecd",
     "unchanged": false,
-    "reason": "Generated standalone equivalent of the reviewed contract; parity tested."
+    "reason": "Declare disabled renounceOwnership override view to resolve Solidity warning 2018; ownership renunciation remains disabled."
   }
 ]
