@@ -100,3 +100,55 @@ approveAccountRead([account]);
 await assert.rejects(raced,/Wallet changed during final authorization/);
 assert.equal(raceSends,0);
 console.log('Account-switch race regression passed: no transaction after identity changes.');
+
+// Execute the production restore function, not a rewritten implementation.
+// No wallet permission, signature, chain switch or transaction may be requested.
+{
+  const start = source.indexOf('export async function restoreWalletSession()');
+  const finish = source.indexOf('\nconst providerIdentity', start);
+  assert.ok(start >= 0 && finish > start);
+  const restoreSource = source.slice(start, finish).replace('export async', 'async');
+  const savedAccount = '0x1111111111111111111111111111111111111111';
+  const changedAccount = '0x2222222222222222222222222222222222222222';
+  const stored = { type:'injected', account:savedAccount, walletName:'MetaMask', providerRdns:'io.metamask' };
+  function fixture({ saved=stored, rdns='io.metamask', accounts=[savedAccount], networkError=false, late=false, cancel=false, wc=false, expired=false }={}) {
+    const calls=[], events=[]; let discoveryCount=0, context;
+    const provider={session: expired ? null : {}, request:async ({method})=>{
+      calls.push(method); assert.equal(method,'eth_accounts','Restore must be read-only');
+      if(cancel) vm.runInContext('walletConnectionRevision++',context);
+      return accounts;
+    }};
+    const state={account:'',chainOk:false};
+    const item={provider,info:{rdns,name:'MetaMask'}};
+    context=vm.createContext({
+      readWalletSession:()=>saved, walletState:state, KNOWN_WALLETS:[{id:'metamask',name:'MetaMask'}],
+      BROWSER_WALLET_ID:'browser', normalize:v=>String(v||'').toLowerCase(),
+      inferProviderRdns:()=>rdns, findInstalledProvider:()=>rdns==='io.metamask'?item:null,
+      discoverWalletProviders:async()=>{discoveryCount++;},
+      orderedSavedWalletProviders:()=>late&&discoveryCount<2?[]:[item],
+      getWalletConnectProvider:async()=>provider,
+      BrowserProvider:class {constructor(raw){this.raw=raw;}},
+      window:{setTimeout:fn=>{fn();return 1;}}, withTimeout:async p=>p,
+      attachProviderListeners:()=>{}, persistWalletSession:()=>{}, emitWalletChanged:()=>events.push(state.account),
+      ensureCorrectNetwork:async options=>{assert.equal(options.interactive,false);if(networkError)throw Error('RPC offline');state.chainOk=true;},
+      console:{warn:()=>{}},
+    });
+    vm.runInContext(`let walletRestorePromise=null;let walletConnectionRevision=0;${restoreSource}`,context);
+    return {state,calls,events,restore:()=>vm.runInContext('restoreWalletSession()',context)};
+  }
+  for(const options of [{},{accounts:[changedAccount]},{late:true},{networkError:true},{saved:{...stored,providerRdns:''}}]) {
+    const f=fixture(options);assert.equal(await f.restore(),true,'Authorized wallet must restore after refresh');
+    assert.equal(f.state.account,options.accounts?.[0]||savedAccount);assert.ok(f.events.length>0);
+    assert.equal(f.state.chainOk,!options.networkError);
+  }
+  for(const options of [{accounts:[]},{rdns:'io.rabby'},{cancel:true},{saved:null}]) {
+    const f=fixture(options);assert.equal(await f.restore(),false);assert.equal(f.state.account,'');
+  }
+  for(const expired of [false,true]) {
+    const f=fixture({saved:{...stored,type:'walletconnect'},expired});
+    assert.equal(await f.restore(),!expired);
+    assert.equal(f.state.account,expired?'':savedAccount);
+  }
+  const f=fixture();await Promise.all([f.restore(),f.restore()]);assert.equal(f.calls.length,1,'Concurrent restores must share account lookup');
+  console.log('Wallet refresh regressions passed: authorized/changed accounts, delayed injection, wrong network, locked wallet, wrong extension, cancellation, no session, WalletConnect and concurrent restore.');
+}
