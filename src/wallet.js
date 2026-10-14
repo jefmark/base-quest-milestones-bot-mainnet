@@ -588,6 +588,7 @@ async function sendContractTransactionDirect(functionName, args, options = {}) {
       to: CONFIG.contractAddress,
       data,
       value: '0x0',
+      chainId: toHexChainId(TARGET_CHAIN_ID),
     };
 
     let hash;
@@ -914,7 +915,7 @@ export async function restoreWalletSession() {
     // One network request on restoration; rejected requests retain the connected
     // account and can be retried with the existing network button.
     try {
-      await ensureCorrectNetwork({ interactive: true });
+      await ensureCorrectNetwork({ interactive: true, addFirst: true });
     } catch (err) {
       // The wallet remains connected; the existing Add/Switch Network control
       // handles wrong network or provider-specific signer errors interactively.
@@ -1119,13 +1120,16 @@ async function connectWithProvider(provider, label = 'Wallet', type = 'injected'
   }
 
   // A manual connection supersedes any in-flight silent refresh recovery.
-  walletConnectionRevision += 1;
+  const connectionRevision = ++walletConnectionRevision;
   clearProviderListeners();
   resetWalletState(false);
 
   try {
     const browserProvider = new BrowserProvider(provider);
     const accounts = await provider.request({ method: 'eth_requestAccounts' });
+    if (connectionRevision !== walletConnectionRevision) {
+      throw new Error('Wallet connection was cancelled or superseded. Connect again explicitly.');
+    }
     const account = accounts?.[0] || '';
     if (!account) throw new Error(`${label} did not return an account.`);
 
@@ -1137,12 +1141,15 @@ async function connectWithProvider(provider, label = 'Wallet', type = 'injected'
     walletState.account = account;
 
     attachProviderListeners(provider);
-    await ensureCorrectNetwork();
+    await ensureCorrectNetwork({ interactive: true, addFirst: true });
 
     await refreshSignerAndContract();
     emitWalletChanged();
     return { ...walletState };
   } catch (err) {
+    if (connectionRevision !== walletConnectionRevision && walletState.eip1193Provider !== provider) {
+      throw normalizeRpcError(err, 'Wallet connection was superseded.');
+    }
     // An injected wallet can authorize accounts while rejecting the automatic
     // network change. Keep its account connected and expose an explicit retry
     // button instead of making the user think that nothing happened.
@@ -1535,8 +1542,11 @@ function renderWalletPicker() {
   `;
 
   pickerRoot.querySelector('.bqm-wallet-close')?.addEventListener('click', closeWalletPicker);
-  pickerRoot.querySelector('.bqm-wallet-overlay')?.addEventListener('click', (event) => {
-    if (event.target === pickerRoot.querySelector('.bqm-wallet-overlay')) closeWalletPicker();
+  // The picker can close during an async wallet response before the original
+  // click finishes bubbling. Capture this render's element, not nullable state.
+  const overlay = pickerRoot.querySelector('.bqm-wallet-overlay');
+  overlay?.addEventListener('click', (event) => {
+    if (event.target === overlay) closeWalletPicker();
   });
 
   for (const button of pickerRoot.querySelectorAll('[data-wallet-id]')) {
@@ -1698,7 +1708,26 @@ async function currentWalletChain(provider) {
   }
 }
 
-export async function ensureCorrectNetwork({ interactive = true } = {}) {
+let networkSetupTask = null;
+
+export async function ensureCorrectNetwork(options = {}) {
+  // Several UI handlers can ask concurrently. Share the same approval rather
+  // than opening another request (-32002), while passive reads stay passive.
+  if (options.interactive === false) return ensureCorrectNetworkNow(options);
+  const provider = walletState.eip1193Provider;
+  const account = normalize(walletState.account);
+  if (networkSetupTask?.provider === provider && networkSetupTask.account === account) {
+    return networkSetupTask.promise;
+  }
+  const task = { provider, account, promise: null };
+  task.promise = ensureCorrectNetworkNow(options).finally(() => {
+    if (networkSetupTask === task) networkSetupTask = null;
+  });
+  networkSetupTask = task;
+  return task.promise;
+}
+
+async function ensureCorrectNetworkNow({ interactive = true, addFirst = false } = {}) {
   const activeProvider = walletState.eip1193Provider;
   if (!activeProvider?.request) {
     walletState.chainOk = false;
@@ -1738,8 +1767,42 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
     walletState.chainOk = false;
     walletState.signer = null;
     walletState.contract = null;
-    try {
+    const addNetwork = async () => {
       await activeProvider.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: target,
+          chainName: CONFIG.chainName,
+          nativeCurrency: {
+            name: CONFIG.nativeCurrencyName,
+            symbol: CONFIG.nativeCurrencySymbol,
+            decimals: CONFIG.nativeCurrencyDecimals,
+          },
+          rpcUrls: [CONFIG.rpcUrl],
+          blockExplorerUrls: [CONFIG.explorerUrl],
+        }],
+      });
+      assertCurrentConnection();
+    };
+    let added = false;
+    if (addFirst && walletState.connectionType !== 'walletconnect') {
+      try {
+        // EIP-3085 permits adding an already-known chain. Do not depend on a
+        // particular wallet returning 4902 before offering BOT configuration.
+        await addNetwork();
+        added = true;
+      } catch (error) {
+        // Some wallets implement switch but not add. Only that precise case
+        // may fall through; user rejection and pending requests must stop.
+        const code = String(walletChainErrorCode(error) ?? '');
+        if (code !== '4200' && code !== '-32601') throw normalizeRpcError(error,
+          `Could not add ${CONFIG.chainName}. Add chain ${TARGET_CHAIN_ID} manually using ${CONFIG.rpcUrl}.`);
+      }
+      current = await currentWalletChain(activeProvider);
+      assertCurrentConnection();
+    }
+    try {
+      if (current !== target) await activeProvider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: target }],
       });
@@ -1750,21 +1813,9 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
       if (walletState.connectionType === 'walletconnect') throw normalizeRpcError(switchErr);
       if (!isMissingChainError(switchErr)) throw normalizeRpcError(switchErr);
 
+      if (added) throw normalizeRpcError(switchErr, `Network was added but switching failed.`);
       try {
-        await activeProvider.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: target,
-            chainName: CONFIG.chainName,
-            nativeCurrency: {
-              name: CONFIG.nativeCurrencyName,
-              symbol: CONFIG.nativeCurrencySymbol,
-              decimals: CONFIG.nativeCurrencyDecimals,
-            },
-            rpcUrls: [CONFIG.rpcUrl],
-            blockExplorerUrls: [CONFIG.explorerUrl],
-          }],
-        });
+        await addNetwork();
       } catch (addErr) {
         throw normalizeRpcError(addErr, `Could not add ${CONFIG.chainName}.`);
       }
@@ -1787,11 +1838,11 @@ export async function ensureCorrectNetwork({ interactive = true } = {}) {
 
   // Some mobile wallets emit chainChanged shortly after the request returns.
   // Confirm the actual chain ID instead of assuming the switch succeeded.
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
     current = await currentWalletChain(activeProvider);
     assertCurrentConnection();
     if (current === target) break;
-    if (attempt < 3) await new Promise((resolve) => window.setTimeout(resolve, 200));
+    if (attempt < 15) await new Promise((resolve) => window.setTimeout(resolve, 200));
   }
 
   walletState.chainOk = current === target;
@@ -1826,7 +1877,7 @@ export async function requestBotNetwork() {
     throw new Error('Connect a wallet first.');
   }
   try {
-    const result = await ensureCorrectNetwork({ interactive: true });
+    const result = await ensureCorrectNetwork({ interactive: true, addFirst: true });
     emitWalletChanged();
     return result;
   } catch (err) {
