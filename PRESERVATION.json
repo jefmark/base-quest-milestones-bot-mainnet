@@ -11,8 +11,10 @@
   },
   {
     "file": "src/wallet.js",
-    "sha256": "d4a507e3307555c6210f996fa2f95b0171f3d550539b559bee4fdedfbabb7466",
-    "unchanged": true
+    "sha256": "45435f3c1fde0c99b63a9d8cd99b8e70dbfe81500ef0f4f31e408c4b3efd7725",
+    "unchanged": false,
+    "previous_sha256": "d4a507e3307555c6210f996fa2f95b0171f3d550539b559bee4fdedfbabb7466",
+    "reason": "Define savedRdns in restoreWalletSession to fix refresh recovery."
   },
   {
     "file": "src/main.js",
