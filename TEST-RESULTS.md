@@ -1,3 +1,33 @@
+# BOT mainnet UI, wallet network and retry patch - 2026-10-14
+
+Reviewed baseline: 8c53c52d87d1efef37d4becdc626e86aff22fdc8.
+
+Changes:
+- Community GitHub links point to jefmark/base-quest-milestones-bot-mainnet in both the game and standalone community page.
+- Connection/restoration requests the configured network. Injected wallets handle nested 4902 errors, add the target network and switch again if addition did not activate it. Rejections do not trigger an add-network prompt. Wrong-chain setup clears stale signer/contract readiness; provider/account changes abort setup.
+- WalletConnect still requires the target chain to be approved in the session. Unsupported wallets cannot be forced to support BOT. Network approval is a wallet action; there is no new multi-signature requirement.
+- Same-checkpoint retries retain prior stage difficulty and accumulated speed. Score and timing reset according to the original checkpoint rules. New nonce/account/checkpoint starts from its own baseline. The 59-second retry lock is unchanged.
+- CSS-only visual refinements retain game canvas geometry and controls; improve card presentation, headings and focus indicators. Hero-card labels no longer overlap.
+- ERC-721 remains correct for BOT, an EVM-compatible L1. The hero uses Layer 1 NFT Runner wording. No contract migration or redeployment is needed for these frontend edits.
+
+Validation performed for this patch:
+- npm ci completed. Checks/build/tests ran with Node 22.23.3.
+- npm run build passed, including syntax, project validation, gameplay, wallet, static release, build environment, release-content and site-settings checks. Vite's existing large-chunk warning remains.
+- npm test: all 17 Hardhat contract tests passed, including standalone Remix equivalence, all 12 milestones, same nonce continuation, reentrancy and ownership restrictions.
+- Real game module with simulated clocks: all 12 stages lose three lives, wait the cooldown, auto-resume with three lives and no reduction in speed; subsequent score recalculation retains difficulty. A new nonce resets speed to its stage baseline.
+- Existing tests retain coverage for per-life score/time preservation, refresh-persisted cooldown, locked input, checkpoint recovery and hidden-tab/frame-gap anti-cheat.
+- Production wallet functions tested with mock providers: existing network, nested unknown-chain error, add-then-switch, user rejection, passive checks, correct chain, unapproved WalletConnect chain and account change during setup. Refresh/account restoration and transaction-race regressions also passed.
+- Headless Chromium: desktop 1440x1000 and mobile 390x844 render without page runtime errors or horizontal page overflow. Canvas and GitHub link are present. Screenshots inspected. This was setup/practice mode because the repository site-settings.json has no contract address.
+- git diff --check passed. Contract, Remix source, NFT art/metadata and site-settings.json were not modified.
+
+Limits:
+- No deployment or on-chain transaction was made. Real MetaMask/mobile/WalletConnect sessions and mainnet minting must still be checked with the user's configured site.
+- Difficulty is retained within the same loaded game instance. A page reload restores the confirmed checkpoint baseline, not an authenticated history of prior in-memory speed.
+- Browser-reported scores are not cryptographic proof of gameplay. Existing contract tests explicitly demonstrate that plausible fabricated scores can mint. This targeted patch fixes the retry difficulty defect; it does not replace the trust model or constitute a complete independent security audit.
+- Historical statements below describe earlier releases; they are not additional tests newly repeated for this patch.
+
+---
+
 # Wallet refresh and English documentation patch - 2026-10-14
 
 Reviewed GitHub baseline: ebc6b85ab204f74566d6a8832732aa8efa262e05.
