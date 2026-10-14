@@ -7,7 +7,7 @@
   "LICENSE",
   "PRESERVATION.json",
   "README.md",
-  "START-HERE-FA.md",
+  "START-HERE.md",
   "TEST-RESULTS.md",
   "contracts/BaseQuestMilestones.sol",
   "contracts/mocks/ReentrantReceiver.sol",
