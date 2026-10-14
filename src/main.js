@@ -98,7 +98,7 @@ app.innerHTML = `
   <main class="shell">
     <section class="hero-card" aria-labelledby="app-title">
       <div class="hero-copy">
-        <p class="eyebrow">${escapeHtml(CONFIG.chainName)} • ERC-721 Runner</p>
+        <p class="eyebrow">${escapeHtml(CONFIG.chainName)} • Layer 1 NFT Runner</p>
         <h1 id="app-title"><span>Base Quest</span><span>Milestones</span></h1>
         <p class="hero-text">
           Play a clean run, unlock a milestone, then mint the matching NFT on ${escapeHtml(CONFIG.chainName)}.
@@ -251,6 +251,7 @@ app.innerHTML = `
           <a href="https://t.me/BaseQuestMilestones" target="_blank" rel="noopener noreferrer">Telegram</a>
           <a href="https://discord.gg/vPUxmRA7C4" target="_blank" rel="noopener noreferrer">Discord</a>
           <a href="https://x.com/BaseQuestGame" target="_blank" rel="noopener noreferrer">X / Twitter</a>
+          <a href="https://github.com/jefmark/base-quest-milestones-bot-mainnet" target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href="./pages/community.html">All community links</a>
         </div>
       </article>
