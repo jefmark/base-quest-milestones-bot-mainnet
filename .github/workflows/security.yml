@@ -1,0 +1,34 @@
+name: Security - Dependencies and Content
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Reject tracked credential files
+        shell: bash
+        run: |
+          tracked="$(git ls-files '*.pem' '*.key' '*.p12' '*.pfx' 'keystore*.json' '.env' '**/.env' '**/.env.*' | grep -vE '(^|/)\.env\.example$' || true)"
+          if [[ -n "$tracked" ]]; then
+            echo "Potential credential files are tracked. Remove and rotate exposed keys:"
+            printf '%s\n' "$tracked"
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm ci --no-fund
+      - name: Verify project links, English source and workflow locations
+        run: npm run check:release
+      - name: Audit all dependency vulnerabilities
+        run: npm audit --audit-level=high
