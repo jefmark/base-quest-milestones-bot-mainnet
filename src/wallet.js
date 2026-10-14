@@ -832,6 +832,8 @@ export async function restoreWalletSession() {
 
   const saved = readWalletSession();
   if (!saved || walletState.account) return false;
+  // Keep provider identity in this scope; an undeclared identifier aborts refresh recovery.
+  const savedRdns = normalize(saved.providerRdns);
   const revision = walletConnectionRevision;
 
   const task = async () => {
