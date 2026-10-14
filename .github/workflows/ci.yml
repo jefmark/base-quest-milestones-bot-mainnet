@@ -1,0 +1,43 @@
+name: CI - Check, Compile, Test and Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Source, Solidity and frontend validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate source and project structure
+        run: npm run check
+      - name: Verify installed package import paths
+        run: npm run check:imports
+      - name: Compile fixed contract
+        run: npm run compile
+      - name: Test direct contract
+        run: npm test
+      - name: Build website
+        run: npm run build
+        env:
+          VITE_NETWORK: botTestnet
+          VITE_PUBLIC_APP_URL: https://example.org/basequest-ci/
+      - name: Check build output
+        run: |
+          test -f dist/index.html
+          test -f dist/pages/community.html
+          test -f dist/metadata/12.json
+          test -f dist/nft/12.png
