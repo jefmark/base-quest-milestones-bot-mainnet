@@ -2158,7 +2158,7 @@ contract BaseQuestMilestones is
     function unpause() external onlyOwner { _unpause(); }
 
     /// @notice Prevent permanently stranding pause administration by accident.
-    function renounceOwnership() public override onlyOwner {
+    function renounceOwnership() public view override onlyOwner {
         revert("RENOUNCE_DISABLED");
     }
 
