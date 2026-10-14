@@ -6,25 +6,31 @@
   },
   {
     "file": "src/game.js",
-    "sha256": "b2951fbf0e9c3f26f9ec4615290d9b7c40194ceca57152710e802d4425c3630b",
-    "unchanged": true
+    "sha256": "a51a5cb0a2694fe120e6c4d99d4e66e77061804cd52c21aff6c807623f85b443",
+    "unchanged": false,
+    "previous_sha256": "b2951fbf0e9c3f26f9ec4615290d9b7c40194ceca57152710e802d4425c3630b",
+    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
   },
   {
     "file": "src/wallet.js",
-    "sha256": "45435f3c1fde0c99b63a9d8cd99b8e70dbfe81500ef0f4f31e408c4b3efd7725",
+    "sha256": "91644910366d42ae4bd1605176b54440e0f257a028e3179797af21292ca087ae",
     "unchanged": false,
-    "previous_sha256": "d4a507e3307555c6210f996fa2f95b0171f3d550539b559bee4fdedfbabb7466",
-    "reason": "Define savedRdns in restoreWalletSession to fix refresh recovery."
+    "previous_sha256": "45435f3c1fde0c99b63a9d8cd99b8e70dbfe81500ef0f4f31e408c4b3efd7725",
+    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
   },
   {
     "file": "src/main.js",
-    "sha256": "142eec419b808536c0b08d39f7bbcdda0fcc908af907df44faa464a8d6184f04",
-    "unchanged": true
+    "sha256": "206efd7eb4ebb304292fe50e098e7bf7031c19f7a4c5c8cf4239e03ba22b5b69",
+    "unchanged": false,
+    "previous_sha256": "142eec419b808536c0b08d39f7bbcdda0fcc908af907df44faa464a8d6184f04",
+    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
   },
   {
     "file": "src/style.css",
-    "sha256": "467e72362457d8e0b54e5b18a97947091c68d58774ce0f149a365c60a08997b6",
-    "unchanged": true
+    "sha256": "26beee4a36d73aa9847a9c5fd0183b67bed21d13d37c6ecd2914a8f8dc51475f",
+    "unchanged": false,
+    "previous_sha256": "467e72362457d8e0b54e5b18a97947091c68d58774ce0f149a365c60a08997b6",
+    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
   },
   {
     "file": "public/favicon.svg",
@@ -218,8 +224,10 @@
   },
   {
     "file": "public/pages/community.html",
-    "sha256": "bcbcf882512edbb068af8b0bd03023cfe0f4ba664685c9a1f908c492167795ae",
-    "unchanged": true
+    "sha256": "6eb5144266db1a84ba5296c3d9e6f0b25e657ab02b119fd4727b558ae0c26474",
+    "unchanged": false,
+    "previous_sha256": "bcbcf882512edbb068af8b0bd03023cfe0f4ba664685c9a1f908c492167795ae",
+    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
   },
   {
     "file": "public/pages/contact.html",
