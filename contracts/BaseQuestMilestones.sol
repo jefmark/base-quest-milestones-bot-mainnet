@@ -82,7 +82,7 @@ contract BaseQuestMilestones is
     {
         require(initialTreasury != address(0), "ZERO_TREASURY");
         require(bytes(initialBaseURI).length != 0, "EMPTY_BASE_URI");
-        baseTokenURI = initialBaseURI;
+        _setBaseTokenURI(initialBaseURI);
         mintCooldown = 40;
         treasury = initialTreasury;
         // feeEnabled and futureMintFeeWei default to zero/false.
@@ -253,9 +253,17 @@ contract BaseQuestMilestones is
     }
 
     function setBaseTokenURI(string calldata newBaseTokenURI) external onlyOwner {
-        require(bytes(newBaseTokenURI).length > 0, "EMPTY_BASE_URI");
-        baseTokenURI = newBaseTokenURI;
-        emit BaseTokenURIUpdated(newBaseTokenURI);
+        _setBaseTokenURI(newBaseTokenURI);
+        emit BaseTokenURIUpdated(baseTokenURI);
+    }
+
+    // Metadata is addressed by milestone as <base>/<milestone>.json.
+    // Normalize a missing slash instead of deploying broken NFT URLs.
+    function _setBaseTokenURI(string memory value) internal {
+        bytes memory uri = bytes(value);
+        require(uri.length > 0, "EMPTY_BASE_URI");
+        baseTokenURI = uri[uri.length - 1] == bytes1("/")
+            ? value : string.concat(value, "/");
     }
 
     function setMintCooldown(uint256 newCooldown) external onlyOwner {
