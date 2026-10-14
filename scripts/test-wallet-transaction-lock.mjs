@@ -208,3 +208,90 @@ console.log('Account-switch race regression passed: no transaction after identit
   }
   console.log('Network regressions passed: switch, nested 4902, add-then-switch, rejection, passive checks, correct chain, WalletConnect approval and account changes.');
 }
+
+// Add-first connection path must not rely on wallet-specific unknown-chain errors.
+{
+  const networkSource = source.slice(source.indexOf('function walletChainErrorCode('),
+    source.indexOf('export async function requestBotNetwork(')).replaceAll('export async', 'async');
+  for (const mode of ['normal','auto-switch','slow','reject','pending','unsupported-add','concurrent','passive','correct']) {
+    const account='0x1111111111111111111111111111111111111111';
+    let chain=mode==='correct'?'0x2a5':'0x1', added=false, polls=0, switched=false;
+    const calls=[];
+    const provider={request:async r=>{
+      calls.push(r.method);
+      if(r.method==='eth_chainId') {
+        if(mode==='slow'&&switched&&++polls===8)chain='0x2a5';
+        return chain;
+      }
+      if(r.method==='wallet_addEthereumChain') {
+        assert.equal(r.params[0].chainId,'0x2a5');
+        assert.equal(r.params[0].rpcUrls[0],'https://rpc.botchain.ai');
+        assert.equal(r.params[0].blockExplorerUrls[0],'https://scan.botchain.ai');
+        if(mode==='reject')throw {code:4001,message:'User rejected'};
+        if(mode==='pending')throw {code:-32002,message:'Already pending'};
+        if(mode==='unsupported-add')throw {code:4200,message:'Unsupported method'};
+        added=true;if(mode==='auto-switch')chain='0x2a5';return null;
+      }
+      if(r.method==='wallet_switchEthereumChain') {
+        if(!added&&mode!=='unsupported-add')throw {code:5001,message:'Custom network not configured'};
+        switched=true;if(mode!=='slow')chain='0x2a5';return null;
+      }
+      throw Error(r.method);
+    }};
+    const state={account,chainOk:false,connectionType:'injected',eip1193Provider:provider};
+    const ctx=vm.createContext({walletState:state,walletConnectionRevision:0,
+      TARGET_CHAIN_ID:677,TARGET_CAIP_CHAIN_ID:'eip155:677',
+      CONFIG:{chainName:'BOT Chain Mainnet',nativeCurrencyName:'BOT',nativeCurrencySymbol:'BOT',nativeCurrencyDecimals:18,
+        rpcUrl:'https://rpc.botchain.ai',explorerUrl:'https://scan.botchain.ai'},
+      normalize:v=>String(v||'').toLowerCase(),toHexChainId:n=>`0x${Number(n).toString(16)}`,
+      isAddress:v=>/^0x[0-9a-f]{40}$/i.test(v),normalizeRpcError:e=>e,
+      BrowserProvider:class {async getSigner(a){return {getAddress:async()=>a};}},
+      createContractIfReady:()=>{},window:{setTimeout:fn=>fn()}});
+    vm.runInContext(networkSource,ctx);
+    const run=()=>vm.runInContext(`ensureCorrectNetwork({interactive:${mode!=='passive'},addFirst:true})`,ctx);
+    if(mode==='reject'||mode==='pending')await assert.rejects(run);
+    else if(mode==='concurrent')await Promise.all([run(),run(),run()]);
+    else assert.equal(await run(),mode!=='passive');
+    const count=m=>calls.filter(c=>c===m).length;
+    assert.equal(count('wallet_addEthereumChain'),['passive','correct'].includes(mode)?0:1,mode);
+    assert.equal(count('wallet_switchEthereumChain'),['reject','pending','passive','correct','auto-switch'].includes(mode)?0:1,mode);
+    assert.equal(state.chainOk,!['reject','pending','passive'].includes(mode),mode);
+  }
+  console.log('Add-first network regressions passed: generic missing-network errors, auto-switch, delayed switch, rejection, pending request, unsupported add, concurrent requests, passive reads and already-correct chain.');
+}
+
+// A close/rejection may remove the picker before its click bubbles to the overlay.
+{
+ const begin=source.indexOf("  const overlay = pickerRoot.querySelector('.bqm-wallet-overlay');");
+ const end=source.indexOf('\n  for (const button',begin);
+ assert.ok(begin>=0&&end>begin);
+ let handler,closed=0;
+ const overlay={addEventListener:(_name,fn)=>{handler=fn;}};
+ const ctx=vm.createContext({pickerRoot:{querySelector:()=>overlay},closeWalletPicker:()=>closed++});
+ vm.runInContext(source.slice(begin,end),ctx);
+ ctx.pickerRoot=null;
+ assert.doesNotThrow(()=>handler({target:{}}));assert.equal(closed,0);
+ handler({target:overlay});assert.equal(closed,1);
+ console.log('Wallet picker close/rejection bubbling regression passed.');
+}
+
+// A late account authorization must not resurrect a disconnected wallet or
+// overwrite another wallet selected while the first request was pending.
+{
+ const begin=source.indexOf('async function connectWithProvider('),end=source.indexOf('async function connectWalletConnect(',begin);
+ for(const superseded of [false,true]){
+  let release;const p={request:()=>new Promise(r=>{release=r;})};
+  const state={};const replacement={request:async()=>[]};
+  const ctx=vm.createContext({walletState:state,p,normalizeRpcError:e=>e,
+   clearProviderListeners:()=>{},resetWalletState:()=>Object.assign(state,{account:'',eip1193Provider:null}),
+   BrowserProvider:class{},persistWalletSession:()=>{throw Error('Stale session must not persist');}});
+  vm.runInContext(`let walletConnectionRevision=0;${source.slice(begin,end)}`,ctx);
+  const pending=vm.runInContext('connectWithProvider(p)',ctx);
+  vm.runInContext('walletConnectionRevision++',ctx);
+  if(superseded)Object.assign(state,{account:'replacement',eip1193Provider:replacement});
+  release(['0x1111111111111111111111111111111111111111']);
+  await assert.rejects(pending,/cancelled or superseded/);
+  assert.equal(state.account,superseded?'replacement':'');
+ }
+ console.log('Late wallet authorization cancellation/supersession regressions passed.');
+}
