@@ -228,6 +228,71 @@ for (const milestone of Array.from({ length: 12 }, (_, i) => i + 1)) {
 }
 console.log('Retry difficulty regressions passed for all 12 stages.');
 
+// Invalidated runs must remain unmintable, but must not leave Start disabled
+// forever after the three-life cooldown. Exercise the real game and UI handler.
+game.destroy(); rafQueue.length = 0;
+storage.delete('bqmFixed968_RetryLock'); highestMinted = 0;
+game = createGame(canvas, callbacks); frame();
+const retrySession = { ...verifiedSession, milestone: 1, nonce: 1000,
+  startedAt: Math.floor(fakeWall / 1000) };
+assert.equal(game.start(retrySession), true);
+for (let i = 0; i < 200; i++) game.jump();
+let edgeFrames = 0;
+while (game.snapshot().lives > 0 && edgeFrames++ < 12000) frame();
+const invalidDead = game.snapshot();
+assert.equal(invalidDead.lives, 0);
+assert.equal(invalidDead.antiCheat.clean, false);
+assert.equal(game.start(retrySession), false, 'invalidated runs cannot bypass the cooldown');
+const mainSource = fs.readFileSync(fileURLToPath(new URL('../src/main.js', import.meta.url)), 'utf8');
+let startHandler;
+let newStarts = 0;
+let activeRunReads = 0;
+const ui = vm.createContext({
+  console, Date, document: { hidden: false }, game, lastSnapshot: null,
+  startBtn: { addEventListener: (_event, fn) => { startHandler = fn; } },
+  walletState: { account: retrySession.player, chainOk: true },
+  CONFIG: { contractAddress: `0x${'2'.repeat(40)}`, chainName: 'BOT Testnet' },
+  mintedReceiptPending: null, startInProgress: false,
+  normalizeAccount: value => String(value || '').toLowerCase(),
+  formatRetryTime: value => String(value), nextSequentialMilestone: () => ({ milestone: 1 }),
+  availableOnchainSession: retrySession, availableSessionAccount: retrySession.player.toLowerCase(),
+  mintedMilestones: new Set(), mintedSyncAccount: '', protectedMessageUntil: 0,
+  checkPendingTransaction: async () => false, syncMintedMilestones: async () => {},
+  getActiveRun: async () => { activeRunReads++; return retrySession; },
+  startVerifiedRun: async () => { newStarts++; throw new Error('Unexpected new transaction'); },
+  setProtectedMessage() {}, clearProtectedMessage() {}, updateWalletButtons() {},
+  updateStats() {}, saveProgressSnapshot() {},
+});
+vm.runInContext(mainSource.slice(mainSource.indexOf('function updateStartButton()'),
+  mainSource.indexOf('function updateJumpButton(')), ui);
+vm.runInContext(mainSource.slice(mainSource.indexOf("startBtn.addEventListener('click',"),
+  mainSource.indexOf("$('#jumpBtn').addEventListener")), ui);
+vm.runInContext('updateStartButton()', ui);
+assert.equal(ui.startBtn.disabled, true, 'button remains locked during cooldown');
+await startHandler();
+assert.equal(activeRunReads, 0, 'locked Start must not perform run recovery');
+edgeFrames = 0;
+while (game.snapshot().retrySeconds > 0 && edgeFrames++ < 3700) frame();
+const expiredInvalid = game.snapshot();
+assert.equal(expiredInvalid.running, false, 'invalidated run must not auto-resume');
+assert.equal(expiredInvalid.retrySeconds, 0);
+assert.equal(expiredInvalid.mintAllowed, false, 'invalidated progress remains unmintable');
+vm.runInContext('updateStartButton()', ui);
+assert.equal(ui.startBtn.disabled, false, 'Start must unlock after invalidated cooldown');
+assert.match(ui.startBtn.textContent, /Resume Verified Run/);
+await startHandler();
+const restartedInvalid = game.snapshot();
+assert.equal(activeRunReads, 1, 'restart must verify the active chain session');
+assert.equal(newStarts, 0, 'existing active session requires no new start transaction');
+assert.equal(restartedInvalid.running, true);
+assert.equal(restartedInvalid.antiCheat.clean, true);
+assert.equal(restartedInvalid.lives, 3);
+assert.equal(restartedInvalid.score, 0, 'discard unminted score from invalidated attempt');
+assert.equal(restartedInvalid.runPlaySeconds, 0, 'restart local play time');
+assert.ok(restartedInvalid.worldSpeed >= invalidDead.worldSpeed, 'preserve checkpoint difficulty');
+assert.equal(restartedInvalid.mintAllowed, false, 'restart must not grant immediate mint eligibility');
+console.log('Invalidated retry UI regression passed: timer enforced, no automatic invalid resume, verified manual restart, no duplicate start and no unearned mint.');
+
 Math.random = originalRandom;
 game.destroy();
 console.log('Client gameplay smoke test passed: same-run lives, persisted 59-second lock, input lockout, protocol checkpoint recovery, and hidden-tab anti-cheat recovery.');
