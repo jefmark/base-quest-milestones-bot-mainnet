@@ -9,6 +9,7 @@ import {
   hasMintedMilestone,
   mintMilestone,
   getPendingWalletTransaction,
+  reconcilePendingWalletTransaction,
   acknowledgeConfirmedMint,
   openWalletModal,
   requestBotNetwork,
@@ -608,6 +609,12 @@ function updateStartButton() {
   if (!startBtn) return;
   const current = game?.snapshot?.() || lastSnapshot;
 
+  const checkpointOwner = mintedReceiptPending?.owner || (current?.mintPaused ? current.verifiedRun?.player : '');
+  if (checkpointOwner && normalizeAccount(checkpointOwner) !== normalizeAccount(walletState.account)) {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Return to checkpoint wallet to continue';
+    return;
+  }
   if (startInProgress) {
     startBtn.disabled = true;
     startBtn.textContent = 'Authorizing Run...';
@@ -621,7 +628,8 @@ function updateStartButton() {
   }
   // Same page: a verified run remains usable after losing all three lives.
   if (!current?.running && current?.verifiedRun?.active && current?.retryLockedUntil
-      && current.retrySeconds <= 0 && !current.startLockedByMintableNft) {
+      && current.retrySeconds <= 0 && !current.startLockedByMintableNft
+      && current.antiCheat?.clean) {
     startBtn.disabled = true;
     startBtn.textContent = 'Resuming automatically...';
     return;
@@ -689,9 +697,20 @@ function updateWalletButtons() {
 }
 
 function updateMintButton(snapshot) {
+  const checkpointOwner = mintedReceiptPending?.owner || (snapshot?.mintPaused ? snapshot.verifiedRun?.player : '');
+  if (checkpointOwner && normalizeAccount(checkpointOwner) !== normalizeAccount(walletState.account)) {
+    mintBtn.disabled = true;
+    mintBtn.textContent = 'Return to checkpoint wallet to sync';
+    return;
+  }
   if (mintedReceiptPending) {
     mintBtn.disabled = mintInProgress || !walletState.chainOk || !walletState.account;
     mintBtn.textContent = `Sync confirmed NFT #${mintedReceiptPending.milestone} (no fee)`;
+    return;
+  }
+  if (getPendingWalletTransaction()) {
+    mintBtn.disabled = mintInProgress || startInProgress || !walletState.chainOk || !walletState.account;
+    mintBtn.textContent = 'Check pending transaction (no fee)';
     return;
   }
   const mintable = snapshot?.mintableMilestone;
@@ -1091,6 +1110,12 @@ startBtn.addEventListener('click', async () => {
   if (startInProgress) return;
 
   const beforeStart = game.snapshot();
+  if (mintedReceiptPending || beforeStart.mintPaused) {
+    setProtectedMessage('Finish or sync the frozen NFT checkpoint with its original wallet before starting another run.', 20000);
+    return;
+  }
+  if (await checkPendingTransaction()) return;
+  if (startInProgress) return;
   // Honor the persistent 59-second retry lock before any on-chain start.
   if (beforeStart.retrySeconds > 0) {
     setProtectedMessage(`Retry is locked for ${formatRetryTime(beforeStart.retrySeconds)}. Wait for the timer to finish.`, 2500);
@@ -1360,6 +1385,34 @@ async function loadNextRunCooldown() {
 async function syncConfirmedMintWithoutTransaction() {
   if (!mintedReceiptPending) return false;
   const pending = mintedReceiptPending;
+  const assertOwner = () => {
+    if (!walletState.chainOk || normalizeAccount(walletState.account) !== normalizeAccount(pending.owner)) {
+      throw new Error('Return to the wallet that minted this NFT before syncing its progress.');
+    }
+  };
+  assertOwner();
+  const local = game.snapshot();
+  const sameCheckpoint = local.mintPaused && local.verifiedRun?.active
+    && normalizeAccount(local.verifiedRun.player) === normalizeAccount(pending.owner)
+    && local.verifiedRun.nonce === pending.runNonce && local.verifiedRun.milestone === pending.milestone;
+  if (!sameCheckpoint) {
+    // Page reload / lost local checkpoint: sync chain history instead of
+    // forcing markMinted() to advance an inactive or different local run.
+    await syncMintedMilestones(true);
+    assertOwner();
+    if (!mintedMilestones.has(pending.milestone)) throw new Error('Confirmed NFT history is not available yet. Retry Sync; no transaction was sent.');
+    const currentRun = await getActiveRun();
+    assertOwner();
+    availableOnchainSession = currentRun?.active ? currentRun : null;
+    availableSessionAccount = normalizeAccount(pending.owner);
+    acknowledgeConfirmedMint(pending.hash, pending.owner, pending.originalHash);
+    mintedReceiptPending = null;
+    mintedNextSessionProof = null;
+    pending.continuedInPlace = false;
+    updateStats(game.snapshot());
+    saveProgressSnapshot();
+    return true;
+  }
   let next = null;
   try {
     next = mintedNextSessionProof && mintedNextSessionProof.pending === pending
@@ -1383,7 +1436,8 @@ async function syncConfirmedMintWithoutTransaction() {
     throw new Error('The mint is confirmed, but the original wallet must be active before gameplay resumes.');
   }
   game.markMinted(pending.milestone, next);
-  acknowledgeConfirmedMint(pending.hash, pending.owner);
+  acknowledgeConfirmedMint(pending.hash, pending.owner, pending.originalHash);
+  pending.continuedInPlace = true;
   mintedMilestones.add(pending.milestone);
   mintedSyncAccount = String(pending.owner).toLowerCase();
   mintedReceiptPending = null;
@@ -1408,7 +1462,9 @@ async function completeConfirmedMint() {
     await syncConfirmedMintWithoutTransaction();
     setProtectedMessage(
       pending.milestone < STAGE_CONFIG.length
-        ? `NFT #${pending.milestone} confirmed. Continuing from the same position on stage #${pending.milestone + 1}; no start transaction required.`
+        ? (pending.continuedInPlace
+          ? `NFT #${pending.milestone} confirmed. Continuing from the same position on stage #${pending.milestone + 1}; no start transaction required.`
+          : `NFT #${pending.milestone} synced from the blockchain. Use Resume Verified Run to continue the active session.`)
         : 'All 12 NFTs have been minted successfully.',
       12000
     );
@@ -1423,10 +1479,49 @@ async function completeConfirmedMint() {
   }
 }
 
+async function checkPendingTransaction() {
+  if (!getPendingWalletTransaction()) return false;
+  if (mintInProgress || startInProgress) return true;
+  mintInProgress = true;
+  updateMintButton(game.snapshot());
+  let confirmedMint = false;
+  try {
+    const result = await reconcilePendingWalletTransaction();
+    if (result?.outcome === 'confirmed' && result.action === 'mintMilestone') {
+      mintedReceiptPending = { milestone: result.milestone, runNonce: result.runNonce,
+        owner: result.from, hash: result.hash, originalHash: result.originalHash, receipt: result.receipt };
+      mintedNextSessionProof = null;
+      confirmedMint = true;
+    } else if (result?.outcome === 'pending') {
+      setProtectedMessage('Transaction is still pending or replacement evidence is not available. Check the wallet/explorer, then use Check pending transaction again. No new transaction was sent.', 30000);
+    } else {
+      await refreshWalletUi();
+      setProtectedMessage(result?.outcome === 'confirmed'
+        ? 'Earlier transaction confirmed. On-chain progress was refreshed; no new transaction was sent.'
+        : 'Earlier transaction was mined as a revert or replacement. Progress was refreshed; you may now retry deliberately.', 20000);
+    }
+  } catch (error) {
+    setProtectedMessage(error?.message || 'Could not resolve the transaction. Its pending record was retained.', 30000);
+  } finally {
+    mintInProgress = false;
+    updateWalletButtons();
+    updateMintButton(game.snapshot());
+  }
+  if (confirmedMint) await completeConfirmedMint();
+  return true;
+}
+
 mintBtn.addEventListener('click', async () => {
   if (mintInProgress) return;
   if (mintedReceiptPending) {
     await completeConfirmedMint();
+    return;
+  }
+  if (await checkPendingTransaction()) return;
+  if (mintInProgress) return;
+  const frozenOwner = game.snapshot().mintPaused ? game.snapshot().verifiedRun?.player : '';
+  if (frozenOwner && normalizeAccount(frozenOwner) !== normalizeAccount(walletState.account)) {
+    setProtectedMessage('Return to the original checkpoint wallet before minting.', 20000);
     return;
   }
   if (nextRunCooldownPending || Date.now() < nextRunAvailableAt) return;
@@ -1453,6 +1548,7 @@ mintBtn.addEventListener('click', async () => {
       runNonce: payload.runNonce,
       owner: ownerAtMint,
       hash: result.hash,
+      originalHash: result.originalHash,
       receipt: result.receipt,
     };
     protectedMessageUntil = Date.now() + 20000;
@@ -1508,8 +1604,12 @@ window.addEventListener('bqm-wallet-changed', (event) => {
   const nextAccount = String(event?.detail?.account || '').toLowerCase();
   const runOwner = String(verified?.player || '').toLowerCase();
   if (verified?.active && runOwner && nextAccount !== runOwner) {
-    game.clearVerifiedRun();
-    setProtectedMessage('Wallet account changed. The previous verified run belongs to another address; start a new verified run.', 20000);
+    if (game.snapshot().mintPaused) {
+      // Keep the frozen checkpoint owned by A while B is selected. All start/
+      // mint controls reject B; returning to A can accept its confirmed receipt.
+      setProtectedMessage('Return to the checkpoint wallet to sync or mint this NFT. Its frozen game position has been preserved.', 20000);
+    } else game.clearVerifiedRun();
+    if (!game.snapshot().mintPaused) setProtectedMessage('Wallet account changed. The previous verified run belongs to another address; start a new verified run.', 20000);
   }
   refreshWalletUi().catch((err) => console.warn('Wallet UI refresh failed:', err));
 });
