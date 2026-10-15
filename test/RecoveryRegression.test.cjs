@@ -211,3 +211,35 @@ describe('Production UI checkpoint recovery',function(){
   assert.equal(h.ctx.availableOnchainSession.milestone,2);assert.equal(h.ctx.mintedReceiptPending,null);
  });
 });
+
+describe('Account-bound asynchronous recovery reads', function () {
+  for (const [operation,mode] of ['getHighestCompletedMilestone()', 'hasMintedMilestone(1)', 'getActiveRun()'].flatMap(op=>[[op,'setup'],[op,'roundtrip']])) {
+    it(`rejects an account change during ${mode} for ${operation}`, async function () {
+      const source=readProjectFile('src/wallet.js');
+      const start=source.includes('function captureWalletReadIdentity()') ? source.indexOf('function captureWalletReadIdentity()') : source.indexOf('export async function getHighestCompletedMilestone()');
+      const A='0x'+'1'.repeat(40),B='0x'+'2'.repeat(40);
+      const state={account:A,eip1193Provider:{},chainOk:true,contract:{}};
+      let queries=0;
+      const resultFor=(account)=>{queries++;state.account=A;if(mode==='roundtrip')ctx.walletConnectionRevision+=2;return account===A?0:7;};
+      state.contract={highestCompletedMilestone:async a=>resultFor(a),mintedByProtocol:async a=>Boolean(resultFor(a)),getActiveRun:async a=>{const stage=resultFor(a);return [1,123,stage,'0x'+'a'.repeat(64),true];}};
+      const ctx=vm.createContext({walletState:state,walletConnectionRevision:0,CONFIG:{contractAddress:A,chainName:'Test',maxMilestone:12},normalize:v=>String(v||'').toLowerCase(),
+        ensureCorrectNetwork:async()=>{if(mode==='setup')state.account=B;return true;},refreshSignerAndContract:async()=>{},withTimeout:p=>p,readContractFunctionDirect:async()=>{throw Error('unexpected fallback');}});
+      vm.runInContext(source.slice(start,source.indexOf('export async function startVerifiedRun(',start)).replace(/\bexport /g,''),ctx);
+      await assert.rejects(vm.runInContext(operation,ctx),/Wallet changed/);
+      assert.equal(queries,mode==='setup'?0:1,'must reject setup changes and discard results after a connection revision changes');
+    });
+  }
+  it('starts a separate progression sync for B while A is still loading',async function(){
+    const source=readProjectFile('src/main.js');const A='0x'+'1'.repeat(40),B='0x'+'2'.repeat(40);
+    let finishA;const oldRead=new Promise(resolve=>{finishA=resolve;});const calls=[];
+    const ctx=vm.createContext({console,walletState:{account:A},mintedSyncGeneration:0,mintedSyncAccount:'',mintedSyncPromise:null,mintedSyncPromiseAccount:'',mintedMilestones:new Set(),STAGE_CONFIG:[{milestone:1},{milestone:2}],
+      getHighestCompletedMilestone:async()=>{calls.push(ctx.walletState.account);return ctx.walletState.account===A?oldRead:2;},hasMintedMilestone:async()=>false,
+      game:{applyProtocolCheckpoint(){},snapshot(){return{};}},highestSequentialMintedMilestone:()=>0,updateStats(){},saveProgressSnapshot(){}});
+    vm.runInContext(source.slice(source.indexOf('async function syncMintedMilestones('),source.indexOf('function isMobileJumpInput(')),ctx);
+    const first=vm.runInContext('syncMintedMilestones()',ctx);ctx.walletState.account=B;
+    const second=vm.runInContext('syncMintedMilestones()',ctx);await Promise.resolve();finishA(1);
+    await Promise.all([first,second]);
+    assert.deepEqual(calls,[A,B]);assert.equal(ctx.mintedSyncAccount,B);
+    assert.deepEqual(Array.from(ctx.mintedMilestones),[1,2]);
+  });
+});
