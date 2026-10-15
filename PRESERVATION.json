@@ -15,17 +15,17 @@
   },
   {
     "file": "src/wallet.js",
-    "sha256": "69d209e297b5a7ff3502ceb2d7308799763300d4473b4060d97295da7d013234",
+    "sha256": "029ecea912910b24ad69cc87e0fe5fa560019d64a649a4ba2fb13500b473570f",
     "unchanged": false,
-    "previous_sha256": "aa693dff2213ac3e807876e49ec4e7a2103c236a4ceac643be28c5d6e03feee2",
-    "reason": "Recover confirmed, delayed and replaced wallet transactions without duplicate submissions; preserve account-owned paused checkpoints."
+    "previous_sha256": "69d209e297b5a7ff3502ceb2d7308799763300d4473b4060d97295da7d013234",
+    "reason": "Bind asynchronous recovery reads and progression synchronization to the initiating wallet account; reject account/provider revision races."
   },
   {
     "file": "src/main.js",
-    "sha256": "0cb8563134a204a1c1b1f61c1f95f89f4e84d5fea2467b21e512a26b7bab333b",
+    "sha256": "8f6c15c17d15a7d5a8b40e699fd0cbd6ad2d386891d3e50846bfada13e9d58af",
     "unchanged": false,
-    "previous_sha256": "5074120de1b5c94e10d7290fbcacd54dc91334fd8bd7059c6371d5722816d89b",
-    "reason": "Only show automatic retry while the local run is clean; allow the existing verified restart flow after an invalidated run and expired cooldown."
+    "previous_sha256": "0cb8563134a204a1c1b1f61c1f95f89f4e84d5fea2467b21e512a26b7bab333b",
+    "reason": "Bind asynchronous recovery reads and progression synchronization to the initiating wallet account; reject account/provider revision races."
   },
   {
     "file": "src/style.css",
