@@ -66,6 +66,7 @@ const fullContext = vm.createContext({
   Interface: class { encodeFunctionData() { return '0xdeadbeef'; } },
   withTimeout: (p) => p,
   rememberPendingTransaction: () => {},
+  capturePendingTransactionMetadata: async () => {},
   BrowserProvider: class { waitForTransaction() { return new Promise((resolve) => { confirmReceipt = resolve; }); } },
 });
 vm.runInContext(`let walletTransactionInFlight = false; ${handler}`, fullContext);
