@@ -233,8 +233,10 @@
   },
   {
     "file": "public/pages/contact.html",
-    "sha256": "ccf80fc0a40362cdbad0d184d718e71930cf713f0c693b2f6f78a9f5a7916f8e",
-    "unchanged": true
+    "sha256": "3e3ee05e00abfdd46544d2faea1c3c773c91faa0370105ac13d0bb8c536b0fec",
+    "unchanged": false,
+    "previous_sha256": "ccf80fc0a40362cdbad0d184d718e71930cf713f0c693b2f6f78a9f5a7916f8e",
+    "reason": "Update English mainnet contact page with owner-provided email and creator X account, existing project channels and the correct repository links."
   },
   {
     "file": "public/pages/dashboard.html",
