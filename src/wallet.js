@@ -2071,83 +2071,97 @@ export async function getBalanceText() {
   return `${formatDecimalForUi(formatted, 5)} ${CONFIG.nativeCurrencySymbol || 'BOT'}`;
 }
 
-export async function getHighestCompletedMilestone() {
-  if (!walletState.account || !CONFIG.contractAddress) return 0;
+// Bind each asynchronous read to the initiating account/provider revision.
+// An A -> B -> A round trip must not make B's response look like A's progress.
+function captureWalletReadIdentity() {
+  return { account: walletState.account, provider: walletState.eip1193Provider,
+    revision: walletConnectionRevision };
+}
 
+function assertWalletReadIdentity(identity) {
+  if (normalize(walletState.account) !== normalize(identity.account)
+      || walletState.eip1193Provider !== identity.provider
+      || walletConnectionRevision !== identity.revision || !walletState.chainOk) {
+    throw new Error('Wallet changed during recovery read. Retry with the original account and network.');
+  }
+}
+
+export async function getHighestCompletedMilestone() {
+  const identity = captureWalletReadIdentity();
+  if (!identity.account || !CONFIG.contractAddress) return 0;
   if (!(await ensureCorrectNetwork({ interactive: false }))) {
     throw new Error(`Switch to ${CONFIG.chainName} using the visible network button before syncing progress.`);
   }
+  assertWalletReadIdentity(identity);
   await refreshSignerAndContract();
+  assertWalletReadIdentity(identity);
   if (!walletState.contract) throw new Error('Contract unavailable for progress read.');
-
   let highest;
   try {
     highest = await withTimeout(
-      walletState.contract.highestCompletedMilestone(walletState.account),
-      12000,
+      walletState.contract.highestCompletedMilestone(identity.account), 12000,
       'Could not read milestone progression quickly enough. Check your connection and try again.'
     );
-  } catch (ethersErr) {
-    const decoded = await readContractFunctionDirect('highestCompletedMilestone', [walletState.account]);
+  } catch {
+    assertWalletReadIdentity(identity);
+    const decoded = await readContractFunctionDirect('highestCompletedMilestone', [identity.account]);
     highest = decoded?.[0];
   }
-
+  assertWalletReadIdentity(identity);
   const value = Number(highest);
   return Number.isFinite(value) ? Math.max(0, Math.min(CONFIG.maxMilestone, Math.floor(value))) : 0;
 }
 
 export async function hasMintedMilestone(milestone) {
-  if (!walletState.account || !CONFIG.contractAddress) return false;
-
+  const identity = captureWalletReadIdentity();
+  if (!identity.account || !CONFIG.contractAddress) return false;
   if (!(await ensureCorrectNetwork({ interactive: false }))) {
     throw new Error(`Switch to ${CONFIG.chainName} using the visible network button before checking NFTs.`);
   }
+  assertWalletReadIdentity(identity);
   await refreshSignerAndContract();
-
+  assertWalletReadIdentity(identity);
   if (!walletState.contract) throw new Error('Contract unavailable for mint-state read.');
-
   const safeMilestone = Math.floor(Number(milestone));
   if (!Number.isFinite(safeMilestone) || safeMilestone < 1) return false;
-
+  let minted;
   try {
-    return Boolean(await withTimeout(
-      walletState.contract.mintedByProtocol(walletState.account, safeMilestone),
-      12000,
+    minted = await withTimeout(
+      walletState.contract.mintedByProtocol(identity.account, safeMilestone), 12000,
       `Could not verify protocol mint #${safeMilestone}.`
-    ));
+    );
   } catch {
-    const decoded = await readContractFunctionDirect('mintedByProtocol', [walletState.account, safeMilestone]);
-    return Boolean(decoded?.[0]);
+    assertWalletReadIdentity(identity);
+    const decoded = await readContractFunctionDirect('mintedByProtocol', [identity.account, safeMilestone]);
+    minted = decoded?.[0];
   }
+  assertWalletReadIdentity(identity);
+  return Boolean(minted);
 }
 
 export async function getActiveRun() {
-  const readAccount = walletState.account;
-  const readProvider = walletState.eip1193Provider;
-  if (!walletState.account || !CONFIG.contractAddress) return null;
-
+  const identity = captureWalletReadIdentity();
+  if (!identity.account || !CONFIG.contractAddress) return null;
   if (!(await ensureCorrectNetwork({ interactive: false }))) {
     throw new Error(`Switch to ${CONFIG.chainName} using the visible network button before recovering a run.`);
   }
+  assertWalletReadIdentity(identity);
   await refreshSignerAndContract();
+  assertWalletReadIdentity(identity);
   if (!walletState.contract) throw new Error('Contract unavailable for run recovery.');
-
   let result;
   try {
     result = await withTimeout(
-      walletState.contract.getActiveRun(walletState.account),
-      12000,
+      walletState.contract.getActiveRun(identity.account), 12000,
       'Could not read the active verified run. Check your network connection and try again.'
     );
   } catch {
-    result = await readContractFunctionDirect('getActiveRun', [walletState.account]);
+    assertWalletReadIdentity(identity);
+    result = await readContractFunctionDirect('getActiveRun', [identity.account]);
   }
-
-  if (normalize(walletState.account) !== normalize(readAccount) || walletState.eip1193Provider !== readProvider || !walletState.chainOk) {
-    throw new Error('Wallet changed during run recovery. Retry with the original account.');
-  }
+  assertWalletReadIdentity(identity);
   return {
-    player: readAccount,
+    player: identity.account,
     nonce: Number(result.nonce ?? result[0] ?? 0),
     startedAt: Number(result.startedAt ?? result[1] ?? 0),
     milestone: Number(result.milestone ?? result[2] ?? 0),
