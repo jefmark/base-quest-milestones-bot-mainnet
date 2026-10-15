@@ -304,6 +304,7 @@ let nextRunCooldownPending = false;
 let mintedMilestones = new Set();
 let mintedSyncAccount = '';
 let mintedSyncPromise = null;
+let mintedSyncPromiseAccount = '';
 let mintedSyncGeneration = 0;
 let mintedReceiptPending = null;
 let availableOnchainSession = null;
@@ -772,7 +773,7 @@ async function syncMintedMilestones(force = false) {
   }
 
   if (!force && mintedSyncAccount === account) return;
-  if (mintedSyncPromise && !force) return mintedSyncPromise;
+  if (mintedSyncPromise && !force && mintedSyncPromiseAccount === account) return mintedSyncPromise;
 
   const generation = ++mintedSyncGeneration;
   const syncPromise = (async () => {
@@ -821,10 +822,14 @@ async function syncMintedMilestones(force = false) {
   })();
 
   mintedSyncPromise = syncPromise;
+  mintedSyncPromiseAccount = account;
   try {
     return await syncPromise;
   } finally {
-    if (mintedSyncPromise === syncPromise) mintedSyncPromise = null;
+    if (mintedSyncPromise === syncPromise) {
+      mintedSyncPromise = null;
+      mintedSyncPromiseAccount = '';
+    }
   }
 }
 
