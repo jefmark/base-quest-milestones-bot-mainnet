@@ -15,17 +15,17 @@
   },
   {
     "file": "src/wallet.js",
-    "sha256": "aa693dff2213ac3e807876e49ec4e7a2103c236a4ceac643be28c5d6e03feee2",
+    "sha256": "69d209e297b5a7ff3502ceb2d7308799763300d4473b4060d97295da7d013234",
     "unchanged": false,
-    "previous_sha256": "f7819d454f53c4a53f25c9ae819086f8a650aa554e0210fb54defb0f257ce59a",
-    "reason": "Correct direct-contract and public JSON settings guidance in three error messages only; no gameplay, wallet transaction, network or contract behavior changed."
+    "previous_sha256": "aa693dff2213ac3e807876e49ec4e7a2103c236a4ceac643be28c5d6e03feee2",
+    "reason": "Recover confirmed, delayed and replaced wallet transactions without duplicate submissions; preserve account-owned paused checkpoints."
   },
   {
     "file": "src/main.js",
-    "sha256": "443a7a162651461b003a383bc52f4bb45425471fe9b244863a2490f46c91eced",
+    "sha256": "0cb8563134a204a1c1b1f61c1f95f89f4e84d5fea2467b21e512a26b7bab333b",
     "unchanged": false,
-    "previous_sha256": "206efd7eb4ebb304292fe50e098e7bf7031c19f7a4c5c8cf4239e03ba22b5b69",
-    "reason": "Correct direct-contract and public JSON settings guidance in three error messages only; no gameplay, wallet transaction, network or contract behavior changed."
+    "previous_sha256": "5074120de1b5c94e10d7290fbcacd54dc91334fd8bd7059c6371d5722816d89b",
+    "reason": "Only show automatic retry while the local run is clean; allow the existing verified restart flow after an invalidated run and expired cooldown."
   },
   {
     "file": "src/style.css",
