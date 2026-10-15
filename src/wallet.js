@@ -460,6 +460,8 @@ function rememberPendingTransaction(account, action, hash, args) {
     window.localStorage.setItem(pendingTxStorageKey(account), JSON.stringify({
       hash, action, account, proxy: CONFIG.contractAddress, chainId: TARGET_CHAIN_ID,
       milestone: ['startRun', 'mintMilestone'].includes(action) ? Number(args?.[0] || 0) : 0,
+      runNonce: action === 'mintMilestone' ? Number(args?.[3] || 0) : 0,
+      data: new Interface(CONTRACT_ABI).encodeFunctionData(action, args),
       submittedAt: Date.now(),
     }));
   } catch { /* Private mode may disable storage; on-chain checks still apply. */ }
@@ -475,11 +477,140 @@ function clearPendingTransaction(account, hash) {
   } catch { /* Browser storage can be disabled. */ }
 }
 
-export function acknowledgeConfirmedMint(hash, account) {
+export function acknowledgeConfirmedMint(hash, account, originalHash = hash) {
   const previous = readPendingTransaction(account);
-  if (previous?.action === 'mintMilestone' && normalize(previous.hash) === normalize(hash)) {
-    clearPendingTransaction(account, hash);
+  if (previous?.action === 'mintMilestone' && normalize(previous.hash) === normalize(originalHash)) {
+    clearPendingTransaction(account, originalHash);
   }
+}
+
+// Read-only transaction recovery. Never infer completion from elapsed time.
+// A nonce is saved only after the RPC returns the actual submitted transaction.
+async function capturePendingTransactionMetadata(account, hash, provider) {
+  try {
+    if (await currentWalletChain(provider) !== toHexChainId(TARGET_CHAIN_ID).toLowerCase()) return;
+    const tx = await withTimeout(provider.request({ method: 'eth_getTransactionByHash', params: [hash] }),
+      6000, 'Transaction details are not available yet.');
+    const saved = readPendingTransaction(account);
+    if (!saved || normalize(saved.hash) !== normalize(hash) || !tx
+        || normalize(tx.hash) !== normalize(hash) || normalize(tx.from) !== normalize(account)
+        || normalize(tx.to) !== normalize(CONFIG.contractAddress)
+        || BigInt(tx.value || '0x0') !== 0n) return;
+    const decoded = new Interface(CONTRACT_ABI).parseTransaction({ data: tx.input || tx.data });
+    if (decoded?.name !== saved.action || (saved.action !== 'cancelRun' && Number(decoded.args[0]) !== saved.milestone)
+        || (saved.data && normalize(tx.input || tx.data) !== normalize(saved.data))) return;
+    const nonce = Number(BigInt(tx.nonce));
+    if (!Number.isSafeInteger(nonce) || nonce < 0) return;
+    window.localStorage.setItem(pendingTxStorageKey(account), JSON.stringify({ ...saved, data: tx.input || tx.data, transactionNonce: nonce }));
+  } catch { /* Keep the hash even when an RPC cannot yet return the transaction. */ }
+}
+
+let transactionRecoveryPromise = null;
+export async function reconcilePendingWalletTransaction() {
+  const previous = readPendingTransaction(walletState.account);
+  if (!previous) return null;
+  const key = `${normalize(previous.account)}:${normalize(previous.hash)}`;
+  if (transactionRecoveryPromise?.key === key) return transactionRecoveryPromise.promise;
+  const operation = { key, promise: null };
+  operation.promise = inspectPendingWalletTransaction(previous);
+  transactionRecoveryPromise = operation;
+  try { return await operation.promise; }
+  finally { if (transactionRecoveryPromise === operation) transactionRecoveryPromise = null; }
+}
+
+async function inspectPendingWalletTransaction(previous) {
+  const provider = walletState.eip1193Provider;
+  const account = previous.account;
+  const current = () => provider === walletState.eip1193Provider && walletState.chainOk
+    && normalize(walletState.account) === normalize(account)
+    && normalize(readPendingTransaction(account)?.hash) === normalize(previous.hash);
+  const read = (method, params) => withTimeout(provider.request({ method, params }),
+    12000, 'Transaction recovery RPC timed out; the pending record was retained.');
+  const targetChain = async () => Number(BigInt(await read('eth_chainId', []))) === TARGET_CHAIN_ID;
+  if (!provider?.request || !current() || !(await targetChain())) {
+    throw new Error('Restore the original wallet and target network to recover this transaction.');
+  }
+  let receipt = await read('eth_getTransactionReceipt', [previous.hash]);
+  let tx = null;
+  if (!receipt) {
+    await capturePendingTransactionMetadata(account, previous.hash, provider);
+    const saved = readPendingTransaction(account);
+    // R8 stored the same sender nonce under `nonce`. Preserve that evidence.
+    const nonce = saved?.transactionNonce ?? saved?.nonce;
+    if (Number.isSafeInteger(nonce) && nonce >= 0) {
+      // Pin the search to a mined head. Pending nonce increases are NOT proof
+      // of replacement. Binary search avoids unbounded block scanning.
+      const headHex = await read('eth_blockNumber', []);
+      const head = Number(BigInt(headHex));
+      const countAt = async (height) => BigInt(await read('eth_getTransactionCount',
+        [account, `0x${height.toString(16)}`]));
+      if (await countAt(head) > BigInt(nonce)) {
+        let low = 0, high = head;
+        while (low < high) {
+          const mid = Math.floor((low + high) / 2);
+          if (await countAt(mid) > BigInt(nonce)) high = mid;
+          else low = mid + 1;
+        }
+        const block = await read('eth_getBlockByNumber', [`0x${low.toString(16)}`, true]);
+        tx = block?.transactions?.find((item) => typeof item === 'object'
+          && normalize(item.from) === normalize(account) && Number(BigInt(item.nonce)) === nonce);
+        if (!tx) throw new Error('The consumed transaction nonce could not be resolved. The pending record was retained.');
+        receipt = await read('eth_getTransactionReceipt', [tx.hash]);
+        if (!receipt || normalize(receipt.blockHash) !== normalize(block.hash)) {
+          throw new Error('Replacement confirmation is not consistent yet. Retry recovery; no transaction was sent.');
+        }
+      }
+    }
+  }
+  if (!receipt) {
+    return { ...previous, outcome: 'pending' };
+  }
+  const hash = receipt.transactionHash || receipt.hash;
+  if (!tx) tx = await read('eth_getTransactionByHash', [hash]);
+  const canonical = await read('eth_getBlockByNumber', [receipt.blockNumber, false]);
+  if (!tx || !canonical || normalize(canonical.hash) !== normalize(receipt.blockHash)
+      || normalize(tx.hash) !== normalize(hash) || normalize(receipt.from) !== normalize(account)
+      || normalize(tx.from) !== normalize(account) || normalize(tx.to) !== normalize(receipt.to)
+      || (normalize(hash) !== normalize(previous.hash)
+        && Number(BigInt(tx.nonce)) !== (readPendingTransaction(account)?.transactionNonce ?? readPendingTransaction(account)?.nonce))) {
+    throw new Error('Transaction recovery evidence did not match. The pending record was retained.');
+  }
+  if (!current() || !(await targetChain()) || !current()) {
+    throw new Error('Wallet changed during recovery. Return to the original account and retry.');
+  }
+  if (![0, 1].includes(Number(receipt.status))) throw new Error('Invalid receipt status; pending record retained.');
+  const result = { ...previous, hash, receipt, from: account, originalHash: previous.hash };
+  if (Number(receipt.status) !== 1) {
+    clearPendingTransaction(account, previous.hash);
+    return { ...result, outcome: 'reverted' };
+  }
+  let decoded = null;
+  try { decoded = new Interface(CONTRACT_ABI).parseTransaction({ data: tx.input || tx.data }); } catch { /* cancellation or unrelated replacement */ }
+  const sameAction = normalize(tx.to) === normalize(CONFIG.contractAddress)
+    && BigInt(tx.value || '0x0') === 0n && decoded?.name === previous.action
+    && (previous.action === 'cancelRun' || Number(decoded.args[0]) === previous.milestone);
+  if (!sameAction) {
+    if (normalize(hash) === normalize(previous.hash)) {
+      throw new Error('Saved transaction does not match the expected operation. Do not retry blindly.');
+    }
+    clearPendingTransaction(account, previous.hash);
+    return { ...result, outcome: 'replaced' };
+  }
+  if (previous.action === 'mintMilestone') {
+    const iface = new Interface(CONTRACT_ABI);
+    const proof = receipt.logs?.map((log) => {
+      if (normalize(log.address) !== normalize(CONFIG.contractAddress)) return null;
+      try { return iface.parseLog(log); } catch { return null; }
+    }).find((event) => event?.name === 'MilestoneMinted'
+      && normalize(event.args.player) === normalize(account)
+      && Number(event.args.milestone) === previous.milestone
+      && BigInt(event.args.runNonce) === BigInt(decoded.args[3]));
+    if (!proof) throw new Error('The successful transaction has no matching NFT mint proof. Pending record retained.');
+    // Keep a confirmed mint until the game has accepted its checkpoint.
+    return { ...result, outcome: 'confirmed', runNonce: Number(proof.args.runNonce) };
+  }
+  clearPendingTransaction(account, previous.hash);
+  return { ...result, outcome: 'confirmed' };
 }
 
 async function assertNoUnresolvedTransaction(account, requestedAction) {
@@ -488,35 +619,13 @@ async function assertNoUnresolvedTransaction(account, requestedAction) {
   if (!walletState.provider || !walletState.chainOk) {
     throw new Error('A previous transaction is recorded. Reconnect to the correct chain to verify it before submitting another.');
   }
-  let receipt;
-  try {
-    receipt = await withTimeout(walletState.provider.getTransactionReceipt(previous.hash),
-      12000, 'Previous transaction receipt lookup timed out.');
-  } catch {
-    throw new Error(`Could not verify earlier ${previous.action} transaction ${previous.hash}. No new transaction was submitted.`);
+  const recovered = await reconcilePendingWalletTransaction();
+  if (!recovered || recovered.outcome === 'pending') {
+    throw new Error(`A previous ${previous.action} is still pending or cannot yet be resolved: ${previous.hash}. Use Check pending transaction; no new transaction was sent.`);
   }
-  if (!receipt) {
-    throw new Error(`A previous ${previous.action} is still pending or not visible to the RPC: ${previous.hash}. ` +
-      'Check the explorer or your wallet before trying again; no duplicate transaction was sent.');
-  }
-  if (normalize(receipt.to) !== normalize(CONFIG.contractAddress)
-      || normalize(receipt.from) !== normalize(previous.account)) {
-    throw new Error('A saved transaction does not match this account and proxy. Investigate before retrying.');
-  }
-  if (Number(receipt.status) !== 1) {
-    clearPendingTransaction(account, previous.hash);
-    return; // Confirmed revert: it is safe to attempt a fresh operation.
-  }
+  if (recovered.outcome !== 'confirmed') return;
   if (previous.action === 'mintMilestone') {
-    let minted;
-    try {
-      minted = await readAlreadyMintedWithFallback(walletState.contract, account, previous.milestone);
-    } catch {
-      throw new Error(`An NFT transaction was confirmed (${previous.hash}), but the mint state cannot yet be verified. Do not send another transaction.`);
-    }
-    if (!minted) {
-      throw new Error(`Prior NFT transaction ${previous.hash} succeeded, but the expected milestone has not been verified. Do not send another transaction.`);
-    }
+    throw new Error('A previous NFT mint is confirmed. Use Sync confirmed NFT before submitting another transaction.');
   }
   if (previous.action === 'startRun') {
     let session;
@@ -592,6 +701,7 @@ async function sendContractTransactionDirect(functionName, args, options = {}) {
     };
 
     let hash;
+    let submittedMetadata;
     try {
       if (unresolvedWalletSubmission) {
         throw new Error('A second transaction cannot be opened while another wallet approval is pending.');
@@ -607,6 +717,7 @@ async function sendContractTransactionDirect(functionName, args, options = {}) {
         // Even if the user closes or the timeout fires, keep late-returned hashes.
         if (/^0x[0-9a-fA-F]{64}$/.test(String(submittedHash || ''))) {
           rememberPendingTransaction(txParams.from, functionName, submittedHash, args);
+          submittedMetadata = capturePendingTransactionMetadata(txParams.from, submittedHash, provider);
         }
         if (unresolvedWalletSubmission === submission) unresolvedWalletSubmission = null;
         return submittedHash;
@@ -629,11 +740,13 @@ async function sendContractTransactionDirect(functionName, args, options = {}) {
       throw new Error('Wallet returned an invalid transaction hash. Disconnect, reconnect, and try again.');
     }
 
+    await submittedMetadata;
+
     // Wait on the original provider, not a new account's provider installed by
     // a chainChanged/accountsChanged event during mobile wallet confirmation.
     const receiptProvider = new BrowserProvider(provider);
     const receipt = await withTimeout(
-      receiptProvider.waitForTransaction(hash, 1),
+      receiptProvider.waitForTransaction(hash, 1, options.confirmationTimeoutMs || 180000),
       options.confirmationTimeoutMs || 180000,
       `Transaction was submitted but confirmation is taking too long. Check it on ${CONFIG.explorerUrl}/tx/${hash}`
     );
@@ -2180,6 +2293,17 @@ export async function mintMilestone(milestone, score, playSeconds, runNonce) {
   }
 
   await assertTargetContractReady();
+
+  const recovered = await reconcilePendingWalletTransaction();
+  if (recovered?.outcome === 'pending') {
+    throw new Error('The earlier transaction is still unresolved. Check pending transaction before retrying.');
+  }
+  if (recovered?.outcome === 'confirmed' && recovered.action === 'mintMilestone') {
+    if (recovered.milestone !== safeMilestone || recovered.runNonce !== safeRunNonce) {
+      throw new Error('A different NFT mint is already confirmed. Sync its on-chain progress before minting again.');
+    }
+    return recovered;
+  }
 
   const alreadyMinted = await readAlreadyMintedWithFallback(
     walletState.contract,
