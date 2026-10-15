@@ -93,6 +93,7 @@
   "src/wallet.js",
   "test/FixedContract.test.cjs",
   "test/FrontendCompatibility.test.cjs",
+  "test/RecoveryRegression.test.cjs",
   "test/Remix.test.cjs",
   "test/SecurityRegression.test.cjs",
   "vite.config.js"
