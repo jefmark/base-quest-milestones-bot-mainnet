@@ -1,6 +1,6 @@
 {
   "network": "botMainnet",
-  "mainnetContractAddress": "",
+  "mainnetContractAddress": "0x3f00E384Cf3CcF7f431535efA8830f0FE5dF6Fd5",
   "testnetContractAddress": "",
   "walletConnectProjectId": "5e254f5a94b33125ae771c32e1efb0ed",
   "publicAppUrl": ""
