@@ -201,6 +201,28 @@ function createIntegrityState() {
 export function createGame(canvas, callbacks = {}) {
   const ctx = canvas.getContext('2d');
 
+  // Official BOT mark, embedded locally: no remote image request during gameplay.
+  // Source: https://www.botchain.ai/logo.png (transparent 144 x 144 PNG).
+  const botCollectibleLogo = typeof Image === 'function' ? new Image() : null;
+  let botCollectibleArtwork = botCollectibleLogo;
+  if (botCollectibleLogo) {
+    botCollectibleLogo.onload = () => {
+      // Tint only the logo's opaque pixels once, never the game canvas.
+      const tintCanvas = canvas.ownerDocument.createElement('canvas');
+      tintCanvas.width = 144;
+      tintCanvas.height = 144;
+      const tintContext = tintCanvas.getContext('2d');
+      if (!tintContext) return;
+      tintContext.drawImage(botCollectibleLogo, 0, 0);
+      tintContext.globalCompositeOperation = 'source-in';
+      tintContext.fillStyle = '#EFFF00';
+      tintContext.fillRect(0, 0, 144, 144);
+      tintContext.globalCompositeOperation = 'source-over';
+      botCollectibleArtwork = tintCanvas;
+    };
+    botCollectibleLogo.src = 'data:image/png;base64,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';
+  }
+
   const state = {
     running: false,
     paused: false,
@@ -926,17 +948,34 @@ export function createGame(canvas, callbacks = {}) {
       ctx.translate(orb.x, orb.y);
       const scale = 1 + Math.sin(orb.pulse) * 0.08;
       ctx.scale(scale, scale);
-      ctx.fillStyle = '#22c55e';
+      // Presentation only: the original radius, pulse and collision logic are preserved.
+      const shell = ctx.createLinearGradient(-orb.r, -orb.r, orb.r, orb.r);
+      shell.addColorStop(0, '#174f4c');
+      shell.addColorStop(0.65, '#092f35');
+      shell.addColorStop(1, '#041a25');
+      ctx.fillStyle = shell;
+      ctx.shadowColor = '#35e8b5';
+      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(0, 0, orb.r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(190,255,220,.85)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#70f4cf';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-      ctx.fillStyle = '#d1fae5';
-      ctx.beginPath();
-      ctx.arc(-3, -3, 4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.shadowBlur = 0;
+      if (botCollectibleLogo && botCollectibleLogo.complete && botCollectibleLogo.naturalWidth > 0) {
+        // Crop transparent padding, retaining the official mark's aspect ratio.
+        const logoHeight = orb.r * 1.6;
+        const logoWidth = logoHeight * 75 / 120;
+        ctx.drawImage(botCollectibleArtwork, 34, 12, 75, 120,
+          -logoWidth / 2, -logoHeight / 2, logoWidth, logoHeight);
+      } else {
+        // Preserve a visible collectible while the embedded image decodes.
+        ctx.fillStyle = '#d1fae5';
+        ctx.beginPath();
+        ctx.arc(-3, -3, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
 
