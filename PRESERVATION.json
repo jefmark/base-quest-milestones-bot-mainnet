@@ -29,10 +29,10 @@
   },
   {
     "file": "src/style.css",
-    "sha256": "26beee4a36d73aa9847a9c5fd0183b67bed21d13d37c6ecd2914a8f8dc51475f",
+    "sha256": "4a2d69ead7c2355afc6c5545f30a6077d70f8ea59f19a6052ae50e130943f05f",
     "unchanged": false,
-    "previous_sha256": "467e72362457d8e0b54e5b18a97947091c68d58774ce0f149a365c60a08997b6",
-    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
+    "previous_sha256": "26beee4a36d73aa9847a9c5fd0183b67bed21d13d37c6ecd2914a8f8dc51475f",
+    "reason": "Add an embedded official BOT logo to the two decorative hero spheres only; preserve layout, gameplay, wallet and contracts."
   },
   {
     "file": "public/favicon.svg",
