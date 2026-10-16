@@ -8,10 +8,10 @@
   },
   {
     "file": "src/game.js",
-    "sha256": "a51a5cb0a2694fe120e6c4d99d4e66e77061804cd52c21aff6c807623f85b443",
+    "sha256": "bf0516559d0babe8eea6ea64f1d132eb8c0693bd104bbce0788b7d59be7af8c0",
     "unchanged": false,
-    "previous_sha256": "b2951fbf0e9c3f26f9ec4615290d9b7c40194ceca57152710e802d4425c3630b",
-    "reason": "BOT mainnet community, network, retry difficulty and presentation patch; see TEST-RESULTS.md."
+    "previous_sha256": "a51a5cb0a2694fe120e6c4d99d4e66e77061804cd52c21aff6c807623f85b443",
+    "reason": "Presentation only: render shield collectibles with the official BOT mark tinted fluorescent yellow; preserve all gameplay and wallet logic."
   },
   {
     "file": "src/wallet.js",
