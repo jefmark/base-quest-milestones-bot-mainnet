@@ -22,22 +22,8 @@ import {
 function installBrowserIdentity() {
   document.title = 'Base Quest Milestones';
 
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-      <defs>
-        <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-          <stop stop-color="#168bff" />
-          <stop offset="1" stop-color="#1ee981" />
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="16" fill="#020617" />
-      <circle cx="32" cy="32" r="24" fill="none" stroke="url(#g)" stroke-width="4" />
-      <path d="M20 41c6-15 13-22 26-27-5 12-12 20-27 27Z" fill="url(#g)" />
-      <circle cx="38" cy="22" r="3" fill="#fff" />
-      <path d="M20 42l-2 7 7-2" stroke="#7dd3fc" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-    </svg>
-  `.trim();
-  const dataUrl = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  // Use the simplified runner logo; refresh cached browser tab icons.
+  const dataUrl = `${import.meta.env.BASE_URL || '/'}favicon.svg?v=fcec26aad9f3`;
 
   let icon = document.querySelector('link[rel="icon"]');
   if (!icon) {
