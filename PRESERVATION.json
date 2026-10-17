@@ -22,10 +22,10 @@
   },
   {
     "file": "src/main.js",
-    "sha256": "8f6c15c17d15a7d5a8b40e699fd0cbd6ad2d386891d3e50846bfada13e9d58af",
+    "sha256": "662612e3a380e604892590a21315fdea6f461ed5c3c93c8dac8943882db254ad",
     "unchanged": false,
-    "previous_sha256": "0cb8563134a204a1c1b1f61c1f95f89f4e84d5fea2467b21e512a26b7bab333b",
-    "reason": "Bind asynchronous recovery reads and progression synchronization to the initiating wallet account; reject account/provider revision races."
+    "previous_sha256": "8f6c15c17d15a7d5a8b40e699fd0cbd6ad2d386891d3e50846bfada13e9d58af",
+    "reason": "Display the approved simplified runner logo as the browser icon; refresh its content version. Gameplay and wallet logic unchanged."
   },
   {
     "file": "src/style.css",
@@ -36,8 +36,10 @@
   },
   {
     "file": "public/favicon.svg",
-    "sha256": "6b89e7df3e514641e4280af66b88d385d2827983cde8fe801924a3d8ff86f002",
-    "unchanged": true
+    "sha256": "fcec26aad9f3ea104f3f944184fc6eb019e1b1104951fdca05f74225979d436b",
+    "unchanged": false,
+    "previous_sha256": "6b89e7df3e514641e4280af66b88d385d2827983cde8fe801924a3d8ff86f002",
+    "reason": "Display the approved simplified runner logo as the browser icon; refresh its content version. Gameplay and wallet logic unchanged."
   },
   {
     "file": "public/metadata/1.json",
