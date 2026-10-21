@@ -296,3 +296,108 @@ console.log('Account-switch race regression passed: no transaction after identit
  }
  console.log('Late wallet authorization cancellation/supersession regressions passed.');
 }
+
+// Exercise the production WalletConnect read wrapper without opening a wallet.
+{
+  const quietSource = source.slice(source.indexOf('const quietWalletConnectProviders ='),
+    source.indexOf('async function getWalletConnectProvider('));
+  const account = '0x1111111111111111111111111111111111111111';
+  const fixture = ({ mode = 'normal' } = {}) => {
+    const walletCalls = [], rpcCalls = [];
+    let chain = '0x2a5';
+    const state = { account };
+    const provider = {
+      session: { namespaces: { eip155: { accounts: [`eip155:677:${account}`], methods: ['eth_sendTransaction'] } } },
+      request: async args => { walletCalls.push(args.method); return args.method === 'eth_chainId' ? chain : 'wallet-result'; },
+    };
+    if (mode === 'unapproved') provider.session.namespaces.eip155.accounts = [`eip155:1:${account}`];
+    if (mode === 'wrong-wallet-chain') chain = '0x1';
+    const context = vm.createContext({
+      walletConnectionRevision: 0, walletState: state,
+      normalize: value => String(value || '').toLowerCase(),
+      TARGET_CHAIN_ID: 677, TARGET_CAIP_CHAIN_ID: 'eip155:677',
+      CONFIG: { rpcUrl: 'https://rpc.example.invalid', chainName: 'BOT Chain Mainnet' },
+      AbortController, window: { setTimeout, clearTimeout },
+      fetch: async (_url, options) => {
+        const request = JSON.parse(options.body); rpcCalls.push(request.method);
+        if (mode === 'http-error') return { ok: false, status: 503 };
+        if (request.method !== 'eth_chainId') {
+          if (mode === 'account-change') state.account = '0x2222222222222222222222222222222222222222';
+          if (mode === 'revision-change') context.walletConnectionRevision++;
+          if (mode === 'session-change') provider.session = { ...provider.session };
+          if (mode === 'approval-revoked') provider.session.namespaces.eip155.accounts = [];
+          if (mode === 'chain-change') chain = '0x1';
+        }
+        const body = { jsonrpc: '2.0', id: mode === 'wrong-id' ? request.id + 1 : request.id };
+        if (mode === 'rpc-error') body.error = { code: -32000, message: 'RPC unavailable' };
+        else if (mode !== 'missing-result') body.result = request.method === 'eth_chainId' ? (mode === 'wrong-rpc-chain' ? '0x1' : '0x2a5') : '0x123';
+        return { ok: true, json: async () => body };
+      },
+    });
+    vm.runInContext(quietSource, context);
+    context.provider = provider;
+    vm.runInContext('installQuietWalletConnectReads(provider)', context);
+    const wrapped = provider.request;
+    vm.runInContext('installQuietWalletConnectReads(provider)', context);
+    assert.equal(provider.request, wrapped, 'Read wrapper must be installed only once');
+    return { provider, walletCalls, rpcCalls };
+  };
+  const normal = fixture();
+  for (const method of ['eth_call', 'eth_getBalance', 'eth_getTransactionReceipt']) {
+    assert.equal(await normal.provider.request({ method, params: [] }), '0x123');
+    assert.ok(!normal.walletCalls.includes(method), `${method} must bypass wallet transport`);
+  }
+  assert.equal(normal.rpcCalls.filter(method => method === 'eth_chainId').length, 1);
+  for (const method of ['eth_sendTransaction', 'personal_sign', 'wallet_switchEthereumChain', 'eth_accounts']) {
+    assert.equal(await normal.provider.request({ method, params: [] }), 'wallet-result');
+    assert.ok(!normal.rpcCalls.includes(method), `${method} must remain a wallet operation`);
+  }
+  for (const mode of ['unapproved', 'wrong-wallet-chain', 'wrong-rpc-chain', 'http-error', 'wrong-id',
+    'rpc-error', 'missing-result', 'account-change', 'revision-change', 'session-change', 'approval-revoked', 'chain-change']) {
+    const test = fixture({ mode });
+    await assert.rejects(() => test.provider.request({ method: 'eth_call', params: [] }), mode);
+    assert.ok(!test.walletCalls.includes('eth_call'), 'RPC failure must not fall back to wallet polling');
+    if (['unapproved', 'wrong-wallet-chain'].includes(mode)) assert.equal(test.rpcCalls.length, 0);
+  }
+  console.log('WalletConnect quiet-read regressions passed: transport isolation, chain approval, RPC errors and account/session races.');
+}
+
+// A supported target-chain session works without optional add/switch permissions.
+{
+  const networkSource = source.slice(source.indexOf('function walletChainErrorCode('),
+    source.indexOf('export async function requestBotNetwork(')).replaceAll('export async', 'async');
+  for (const mode of ['approved-correct', 'other-chain-only', 'switch-not-approved', 'switch-approved']) {
+    const account = '0x1111111111111111111111111111111111111111';
+    const calls = [];
+    let chain = ['switch-not-approved', 'switch-approved'].includes(mode) ? '0x1' : '0x2a5';
+    const provider = {
+      session: { namespaces: { eip155: {
+        accounts: [`eip155:${mode === 'other-chain-only' ? 1 : 677}:${account}`],
+        methods: ['eth_sendTransaction', ...(mode === 'switch-approved' ? ['wallet_switchEthereumChain'] : [])],
+      } } },
+      request: async args => {
+        calls.push(args.method);
+        if (args.method === 'eth_chainId') return chain;
+        if (args.method === 'wallet_switchEthereumChain') { chain = args.params[0].chainId; return null; }
+        throw Error(`Unexpected wallet method: ${args.method}`);
+      },
+    };
+    const state = { account, chainOk: true, connectionType: 'walletconnect', eip1193Provider: provider };
+    const context = vm.createContext({ walletState: state, walletConnectionRevision: 0,
+      TARGET_CHAIN_ID: 677, TARGET_CAIP_CHAIN_ID: 'eip155:677', CONFIG: { chainName: 'BOT Chain Mainnet' },
+      normalize: value => String(value || '').toLowerCase(), toHexChainId: n => `0x${n.toString(16)}`,
+      isAddress: value => /^0x[0-9a-f]{40}$/i.test(value), normalizeRpcError: error => error,
+      BrowserProvider: class { async getSigner(a) { return { getAddress: async () => a }; } },
+      createContractIfReady() {}, window: { setTimeout },
+    });
+    vm.runInContext(networkSource, context);
+    const run = () => vm.runInContext('ensureCorrectNetwork({interactive: true, addFirst: true})', context);
+    if (['other-chain-only', 'switch-not-approved'].includes(mode)) {
+      await assert.rejects(run);
+      assert.equal(state.chainOk, false);
+      assert.ok(!calls.includes('wallet_switchEthereumChain'));
+    } else assert.equal(await run(), true);
+    assert.ok(!calls.includes('wallet_addEthereumChain'));
+  }
+  console.log('WalletConnect permission regressions passed: exact target approval and optional network methods.');
+}
