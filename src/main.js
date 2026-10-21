@@ -22,8 +22,11 @@ import {
 function installBrowserIdentity() {
   document.title = 'Base Quest Milestones';
 
-  // Use the simplified runner logo; refresh cached browser tab icons.
-  const dataUrl = `${import.meta.env.BASE_URL || '/'}favicon.svg?v=fcec26aad9f3`;
+  // Version the desktop favicon URL so browsers do not keep displaying an older cached icon.
+  const basePath = import.meta.env.BASE_URL || '/';
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  const faviconUrl = `${normalizedBase}favicon-runner-v2.png?v=20261019`;
+  const appleTouchIconUrl = `${normalizedBase}favicon-runner-v2.png`;
 
   let icon = document.querySelector('link[rel="icon"]');
   if (!icon) {
@@ -31,8 +34,20 @@ function installBrowserIdentity() {
     icon.rel = 'icon';
     document.head.appendChild(icon);
   }
-  icon.type = 'image/svg+xml';
-  icon.href = dataUrl;
+  icon.type = 'image/png';
+  icon.href = faviconUrl;
+  // Do not advertise the source image's large dimensions as a desktop favicon size.
+  icon.removeAttribute('sizes');
+
+  // Keep the legacy shortcut-icon declaration in sync for desktop browsers that use it.
+  let shortcutIcon = document.querySelector('link[rel="shortcut icon"]');
+  if (!shortcutIcon) {
+    shortcutIcon = document.createElement('link');
+    shortcutIcon.rel = 'shortcut icon';
+    document.head.appendChild(shortcutIcon);
+  }
+  shortcutIcon.type = 'image/png';
+  shortcutIcon.href = faviconUrl;
 
   let appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
   if (!appleIcon) {
@@ -40,7 +55,7 @@ function installBrowserIdentity() {
     appleIcon.rel = 'apple-touch-icon';
     document.head.appendChild(appleIcon);
   }
-  appleIcon.href = dataUrl;
+  appleIcon.href = appleTouchIconUrl;
 
   const ensureMeta = (name, content) => {
     let meta = document.querySelector(`meta[name="${name}"]`);
