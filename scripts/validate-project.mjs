@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 const read = file => fs.readFileSync(file, 'utf8');
 const root = process.cwd();
@@ -88,7 +89,7 @@ const rules = JSON.parse(read(source('public/progression-rules.json')));
 assert.equal(rules.stages.length,12);
 assert.equal(rules.verifiedRunRequiredForMint,true);
 assert.match(read(source('src/wallet.js')), /restoreWalletSession/);
-assert.match(read(source('src/wallet.js')), /optionalChains:\s*\[TARGET_CHAIN_ID\]/);
+assert.match(read(source('src/wallet.js')), /\bchains:\s*\[TARGET_CHAIN_ID\]/);
 assert.match(read(source('src/wallet.js')), /eth_accounts/);
 assert.match(main, /getActiveRun\(\)/);
 assert.match(main, /resumable/);
@@ -135,5 +136,14 @@ assert.match(read(source('scripts/finalize-site.mjs')), /Mainnet pages must not 
 for (const file of ['src/config.js','src/wallet.js','src/main.js','src/game.js','public/pages.js']) {
   rejectText(file, /bqmBotMainnet677|bqm_bot_mainnet_677_wallet_session/i, 'shared old chain 677 localStorage');
 }
-assert.match(read(source('index.html')), /BOT Chain Testnet/, 'default network must be testnet');
+assert.match(read(source('index.html')), /BOT Chain Mainnet/, 'Mainnet entry page must identify its network');
+// These entries describe source bytes, not generated dist files.
+const preservation = JSON.parse(read(source('PRESERVATION.json')));
+const preservedPaths = new Set();
+for (const entry of preservation) {
+  assert.ok(!preservedPaths.has(entry.file), `Duplicate preservation entry: ${entry.file}`);
+  preservedPaths.add(entry.file);
+  const digest = createHash('sha256').update(fs.readFileSync(source(entry.file))).digest('hex');
+  assert.equal(entry.sha256, digest, `Stale preservation hash: ${entry.file}`);
+}
 console.log(`Project integrity passed: 8 separate pages, 9 drawer links per page, ${channels.length} community links, 12 NFT image+metadata pairs, stage/ABI logic, both isolated networks.`);
