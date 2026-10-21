@@ -13,27 +13,22 @@ if (address && (!/^0x[0-9a-f]{40}$/.test(address) || /^0x0{40}$/.test(address)))
 if (mainnet && !address && process.env.VITE_SETUP_ONLY !== 'true') throw new Error('Mainnet pages must not be published without the mainnet contract address');
 const chain = mainnet ? 677 : 968;
 const progressKey = `bqmFixed${chain}_${address || 'practice'}_ProgressV1`;
-// Keep the Play-page title and manifest consistent when a separate
-// mainnet website is explicitly approved for publication.
-if (mainnet) {
-  for (const name of ['index.html', 'site.webmanifest']) {
-    const file = path.resolve('dist', name);
-    if (!fs.existsSync(file)) continue;
-    const original = fs.readFileSync(file, 'utf8');
-    fs.writeFileSync(file, original
-      .replaceAll('BOT Chain Testnet', 'BOT Chain Mainnet')
-      .replaceAll('BOT Testnet first', 'BOT Mainnet'));
-  }
+// Keep source and generated network labels consistent for either build target.
+const networkLabel = mainnet ? 'BOT Chain Mainnet' : 'BOT Chain Testnet';
+const normalizeNetworkText = text => text
+  .replace(/BOT Chain (?:Testnet|Mainnet)(?:-first)?/g, networkLabel)
+  .replace(/(?:Testnet|Mainnet) Fixed V1/g, mainnet ? 'Mainnet Fixed V1' : 'Testnet Fixed V1')
+  .replace(/Chain ID (?:968|677)/g, `Chain ID ${chain}`);
+for (const name of ['index.html', 'site.webmanifest']) {
+  const file = path.resolve('dist', name);
+  if (!fs.existsSync(file)) continue;
+  fs.writeFileSync(file, normalizeNetworkText(fs.readFileSync(file, 'utf8')));
 }
 const folder = path.resolve('dist/pages');
 for (const name of fs.readdirSync(folder).filter(s => s.endsWith('.html'))) {
   const f = path.join(folder, name);
   let html = fs.readFileSync(f, 'utf8');
-  if (mainnet) {
-    html = html.replaceAll('BOT Chain Testnet', 'BOT Chain Mainnet')
-      .replaceAll('Testnet Fixed V1', 'Mainnet Fixed V1')
-      .replaceAll('Chain ID 968', 'Chain ID 677');
-  }
+  html = normalizeNetworkText(html);
   if (!html.includes('page-drawer') || !html.includes('page-menu-toggle')) {
     throw new Error(`Left navigation was removed from ${name}`);
   }
