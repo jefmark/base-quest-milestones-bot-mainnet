@@ -6,12 +6,18 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const iconBytes = fs.readFileSync(path.join(root, 'public/favicon-runner-v2.png'));
+assert.equal(iconBytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'Runner icon must contain real PNG bytes');
+assert.equal(iconBytes.readUInt32BE(16), 1254);
+assert.equal(iconBytes.readUInt32BE(20), 1254);
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bqm-static-'));
 const output = path.join(tmp, 'dist');
 fs.mkdirSync(path.join(output, 'pages'), { recursive: true });
 fs.cpSync(path.join(root, 'public/pages'), path.join(output, 'pages'), { recursive: true });
 fs.cpSync(path.join(root, 'public/metadata'), path.join(output, 'metadata'), { recursive: true });
 fs.copyFileSync(path.join(root, 'public/pages.js'), path.join(output, 'pages.js'));
+fs.copyFileSync(path.join(root, 'index.html'), path.join(output, 'index.html'));
+fs.copyFileSync(path.join(root, 'public/site.webmanifest'), path.join(output, 'site.webmanifest'));
 
 const env = {
   ...process.env,
@@ -47,6 +53,8 @@ try {
     VITE_CONFIRM_MAINNET_BUILD: 'BOT_MAINNET_677', VITE_BOT_MAINNET_CONTRACT_ADDRESS: '0x' + '2'.repeat(40),
     GITHUB_EVENT_NAME: 'workflow_dispatch' });
   run('finalize-site.mjs');
+  assert.match(fs.readFileSync(path.join(output, 'index.html'), 'utf8'), /BOT Chain Testnet/);
+  assert.match(JSON.parse(fs.readFileSync(path.join(output, 'site.webmanifest'))).description, /BOT Chain Testnet/);
   run('finalize-metadata.mjs');
   // CI must never publish token metadata that references localhost.
   run('finalize-metadata.mjs', { ...env, CI: 'true',
@@ -70,6 +78,12 @@ try {
   js = fs.readFileSync(path.join(output, 'pages.js'), 'utf8');
   assert.ok(js.includes(`bqmFixed677_${'0x' + '2'.repeat(40)}_ProgressV1`));
   assert.ok(fs.readFileSync(path.join(output, 'pages/home.html'), 'utf8').includes('BOT Chain Mainnet'));
+  const entry = fs.readFileSync(path.join(output, 'index.html'), 'utf8');
+  assert.match(entry, /BOT Chain Mainnet/);
+  assert.doesNotMatch(entry, /Testnet|Mainnet-first/);
+  assert.match(entry, /favicon-runner-v2\.png\?v=20261019/);
+  assert.match(entry, /rel="shortcut icon"/);
+  assert.match(JSON.parse(fs.readFileSync(path.join(output, 'site.webmanifest'))).description, /BOT Chain Mainnet/);
   console.log('Static release tests passed: 8 pages, 12 NFTs, metadata HTTPS, isolated networks and manual-only mainnet release.');
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
