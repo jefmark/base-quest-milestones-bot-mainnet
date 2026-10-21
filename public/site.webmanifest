@@ -1,16 +1,17 @@
 {
   "name": "Base Quest Milestones",
   "short_name": "Base Quest",
-  "description": "Base Quest Milestones ERC-721 runner (BOT Testnet first, independent Mainnet later)",
+  "description": "Base Quest Milestones ERC-721 runner on BOT Chain Mainnet",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#0f172a",
   "background_color": "#020617",
   "icons": [
     {
-      "src": "favicon.svg",
-      "sizes": "64x64",
-      "type": "image/svg+xml"
+      "src": "favicon-runner-v2.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
