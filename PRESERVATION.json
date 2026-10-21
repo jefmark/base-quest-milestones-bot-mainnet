@@ -15,17 +15,17 @@
   },
   {
     "file": "src/wallet.js",
-    "sha256": "029ecea912910b24ad69cc87e0fe5fa560019d64a649a4ba2fb13500b473570f",
+    "sha256": "ba319e428c46c69588cf8fdaa65d2a8a4066c9c1a520555d06e680d27016237b",
     "unchanged": false,
-    "previous_sha256": "69d209e297b5a7ff3502ceb2d7308799763300d4473b4060d97295da7d013234",
-    "reason": "Bind asynchronous recovery reads and progression synchronization to the initiating wallet account; reject account/provider revision races."
+    "previous_sha256": "029ecea912910b24ad69cc87e0fe5fa560019d64a649a4ba2fb13500b473570f",
+    "reason": "Require target-chain WalletConnect approval, port quiet RPC reads, reject stale account/session results and guard optional network-switch permissions."
   },
   {
     "file": "src/main.js",
-    "sha256": "662612e3a380e604892590a21315fdea6f461ed5c3c93c8dac8943882db254ad",
+    "sha256": "e9bb356bce5ae76e9d63e01dc0506a015e259053a7076dc2b41bcc58e84ba547",
     "unchanged": false,
-    "previous_sha256": "8f6c15c17d15a7d5a8b40e699fd0cbd6ad2d386891d3e50846bfada13e9d58af",
-    "reason": "Display the approved simplified runner logo as the browser icon; refresh its content version. Gameplay and wallet logic unchanged."
+    "previous_sha256": "662612e3a380e604892590a21315fdea6f461ed5c3c93c8dac8943882db254ad",
+    "reason": "Port final testnet PNG browser identity, versioned favicon URL, normalized base path and shortcut icon synchronization."
   },
   {
     "file": "src/style.css",
@@ -282,8 +282,10 @@
   },
   {
     "file": "public/site.webmanifest",
-    "sha256": "a2efc5273d4b4d3c3deaf4a129fe54aee6c2cb7570bf74833d0f8903f4b83be4",
-    "unchanged": true
+    "sha256": "6d27c746c512b210191569bd4bf130cca94188e0f5abec9f784983bc0304f5cc",
+    "unchanged": false,
+    "previous_sha256": "a2efc5273d4b4d3c3deaf4a129fe54aee6c2cb7570bf74833d0f8903f4b83be4",
+    "reason": "Use the existing PNG runner icon and an accurate mainnet description."
   },
   {
     "file": "remix/BaseQuestMilestones.sol",
@@ -291,5 +293,47 @@
     "previous_sha256": "9ec05caf8c53ae1e028d0064babc3500ab56a8f64a7244a060005f6441091ecd",
     "unchanged": false,
     "reason": "Declare disabled renounceOwnership override view to resolve Solidity warning 2018; ownership renunciation remains disabled."
+  },
+  {
+    "file": "index.html",
+    "sha256": "b61308915f076b04736fcbeaed5474dc52d79e5047b6b9d271d098ea0326277a",
+    "unchanged": false,
+    "previous_sha256": "9b1446dc033ebeed6ee3d15b522d6d65d70a07016ac53e05222544facbc4dfcf",
+    "reason": "Record this mainnet synchronization change and include it in automated preservation verification."
+  },
+  {
+    "file": "scripts/validate-project.mjs",
+    "sha256": "87d2b2496a727bc6e0fb36d24c92e10c309879b9cadb0d288002c502793b74d4",
+    "unchanged": false,
+    "previous_sha256": "7f74bbde723f6d6cdfd6ce6c65b440fd2070106f3b802a301f4347eca60be238",
+    "reason": "Record this mainnet synchronization change and include it in automated preservation verification."
+  },
+  {
+    "file": "scripts/finalize-site.mjs",
+    "sha256": "db17c0386fe18eb33a2fced1e048e55a2ccc96c7aea538c2d34dd7714fdbc131",
+    "unchanged": false,
+    "previous_sha256": "45262e2b15d96ed9640a1bef0f14ca03f2bfc0a7032f91eacb87dce7cf99e31d",
+    "reason": "Record this mainnet synchronization change and include it in automated preservation verification."
+  },
+  {
+    "file": "scripts/test-wallet-transaction-lock.mjs",
+    "sha256": "0de0efc3b4b90ad2bb1b4d2fe7e2b0e41ac9cf637360399bc3097674c853d983",
+    "unchanged": false,
+    "previous_sha256": "240a5f21be2451a41d8378a0908f5fecdfcfc37a4519ea81342f4f8b47264ca5",
+    "reason": "Record this mainnet synchronization change and include it in automated preservation verification."
+  },
+  {
+    "file": "scripts/test-static-release.mjs",
+    "sha256": "cde5a33c71a437a430b2e632b613d192f61183c787e845b478e8a92ad60d4446",
+    "unchanged": false,
+    "previous_sha256": "22d4d48a5dd7fc5b3dc4161d022711176e7fbce6a57e9f3394bb335a6538fd70",
+    "reason": "Record this mainnet synchronization change and include it in automated preservation verification."
+  },
+  {
+    "file": "public/favicon-runner-v2.png",
+    "sha256": "ed799303f3d920ad5a5611d2bedab7f8b3b41fca24f1489048dac46794f0db20",
+    "unchanged": false,
+    "previous_sha256": "048c79221fbce1d0e4c07d0d1b979a7d7f702f62e8120415c897ac2df4fbda19",
+    "reason": "Record this mainnet synchronization change and include it in automated preservation verification."
   }
 ]
