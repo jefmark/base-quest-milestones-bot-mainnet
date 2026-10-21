@@ -31,10 +31,9 @@ const REQUIRED_METHODS = [
   'eth_sendTransaction',
 ];
 
-// The target chain is optional in WalletConnect. All methods needed for
-// that chain must therefore also appear in optionalMethods.
+// Require the game network for a usable WalletConnect session.
+// Additional wallet capabilities remain optional.
 const OPTIONAL_METHODS = [
-  'eth_sendTransaction',
   'personal_sign',
   'eth_signTypedData',
   'eth_signTypedData_v4',
@@ -1180,7 +1179,7 @@ function findInstalledProvider(walletId) {
 
 function walletConnectMetadata() {
   const appUrl = canonicalAppUrl();
-  const iconUrl = new URL('favicon.svg', appUrl).href;
+  const iconUrl = new URL('favicon-runner-v2.png', appUrl).href;
 
   return {
     name: 'Base Quest Milestones',
@@ -1188,6 +1187,78 @@ function walletConnectMetadata() {
     url: appUrl,
     icons: [iconUrl],
   };
+}
+
+// WalletConnect may route even read-only RPC calls to the mobile wallet when
+// those methods appear in its approved namespace. Keep polling off the wallet
+// transport so balance/receipt/contract reads cannot repeatedly open the app.
+const quietWalletConnectProviders = new WeakSet();
+function installQuietWalletConnectReads(provider) {
+  if (!provider?.request || quietWalletConnectProviders.has(provider)) return provider;
+  const walletRequest = provider.request.bind(provider);
+  const readMethods = new Set([
+    'eth_call', 'eth_getBalance', 'eth_blockNumber', 'eth_getBlockByNumber',
+    'eth_getBlockByHash', 'eth_getTransactionByHash', 'eth_getTransactionReceipt',
+    'eth_getTransactionCount', 'eth_getCode', 'eth_getLogs', 'eth_estimateGas',
+    'eth_gasPrice', 'eth_maxPriorityFeePerGas', 'eth_feeHistory',
+  ]);
+  let rpcId = 0;
+  let verifiedRpc = null;
+  const rpc = async (method, params) => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 12000);
+    const id = ++rpcId;
+    try {
+      const response = await fetch(CONFIG.rpcUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Network RPC returned HTTP ${response.status}.`);
+      const body = await response.json();
+      if (body.id !== id) throw new Error('Network RPC returned a mismatched response.');
+      if (body.error) {
+        const error = new Error(body.error.message || 'Network RPC request failed.');
+        error.code = body.error.code;
+        error.data = body.error.data;
+        throw error;
+      }
+      if (!Object.prototype.hasOwnProperty.call(body, 'result')) throw new Error('Network RPC returned no result.');
+      return body.result;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  };
+  provider.request = async (args) => {
+    // Account authorization, signing and chain changes remain wallet operations.
+    if (!readMethods.has(args?.method)) return walletRequest(args);
+    const revision = walletConnectionRevision;
+    const activeAccount = normalize(walletState.account);
+    const session = provider.session;
+    const approvedSnapshot = JSON.stringify(session?.namespaces?.eip155 || null);
+    const chain = Number(await walletRequest({ method: 'eth_chainId' }));
+    const accounts = provider.session?.namespaces?.eip155?.accounts || [];
+    if (chain !== TARGET_CHAIN_ID || !accounts.some(id => String(id).startsWith(`${TARGET_CAIP_CHAIN_ID}:`))) {
+      throw new Error(`Approve ${CONFIG.chainName} in the wallet before reading its state.`);
+    }
+    if (!verifiedRpc) {
+      verifiedRpc = rpc('eth_chainId', []).then(value => {
+        if (Number(value) !== TARGET_CHAIN_ID) throw new Error('Configured RPC returned the wrong chain.');
+      }).catch(error => { verifiedRpc = null; throw error; });
+    }
+    await verifiedRpc;
+    const result = await rpc(args.method, args.params || []);
+    // Do not return a result from the old network after an account/network change.
+    const afterChain = Number(await walletRequest({ method: 'eth_chainId' }));
+    if (afterChain !== TARGET_CHAIN_ID || revision !== walletConnectionRevision ||
+        activeAccount !== normalize(walletState.account) || provider.session !== session ||
+        approvedSnapshot !== JSON.stringify(provider.session?.namespaces?.eip155 || null)) {
+      throw new Error('Wallet account, network or session changed during the read.');
+    }
+    return result;
+  };
+  quietWalletConnectProviders.add(provider);
+  return provider;
 }
 
 async function getWalletConnectProvider() {
@@ -1202,7 +1273,7 @@ async function getWalletConnectProvider() {
     const { default: EthereumProvider } = await import('@walletconnect/ethereum-provider');
     walletConnectProvider = await EthereumProvider.init({
       projectId,
-      optionalChains: [TARGET_CHAIN_ID],
+      chains: [TARGET_CHAIN_ID],
       methods: REQUIRED_METHODS,
       optionalMethods: OPTIONAL_METHODS,
       events: REQUIRED_EVENTS,
@@ -1224,7 +1295,7 @@ async function getWalletConnectProvider() {
     });
   }
 
-  return walletConnectProvider;
+  return installQuietWalletConnectReads(walletConnectProvider);
 }
 
 async function connectWithProvider(provider, label = 'Wallet', type = 'injected') {
@@ -1301,7 +1372,11 @@ async function connectWalletConnect() {
       .request({ method: 'eth_accounts' })
       .catch(() => []);
 
-    if (existingAccounts?.[0]) {
+    const namespace = provider.session?.namespaces?.eip155;
+    const hasTargetPermission = namespace?.accounts?.some(id =>
+      String(id).startsWith(`${TARGET_CAIP_CHAIN_ID}:`)) &&
+      namespace?.methods?.includes('eth_sendTransaction');
+    if (existingAccounts?.[0] && hasTargetPermission) {
       return connectWithProvider(provider, 'WalletConnect', 'walletconnect');
     }
 
@@ -1315,7 +1390,7 @@ async function connectWalletConnect() {
   }
 
   const connectPromise = typeof provider.connect === 'function'
-    ? provider.connect()
+    ? provider.connect({ chains: [TARGET_CHAIN_ID] })
     : provider.enable();
 
   try {
@@ -1336,6 +1411,14 @@ async function connectWalletConnect() {
     throw err;
   }
 
+  // Reject an incomplete approval before exposing it as a connected game wallet.
+  const namespace = provider.session?.namespaces?.eip155;
+  if (!namespace?.accounts?.some(id => String(id).startsWith(`${TARGET_CAIP_CHAIN_ID}:`)) ||
+      !namespace?.methods?.includes('eth_sendTransaction')) {
+    try { await provider.disconnect(); } catch { /* best-effort cleanup */ }
+    if (provider === walletConnectProvider) walletConnectProvider = null;
+    throw new Error(`${CONFIG.chainName} (chain ${TARGET_CHAIN_ID}) was not approved. Open this game in MetaMask's in-app browser and select MetaMask directly, or add/select the network in your wallet before a new WalletConnect pairing.`);
+  }
   return connectWithProvider(provider, 'WalletConnect', 'walletconnect');
 }
 
@@ -1854,8 +1937,8 @@ async function ensureCorrectNetworkNow({ interactive = true, addFirst = false } 
     }
   };
   const target = normalize(toHexChainId(TARGET_CHAIN_ID));
-  // A WalletConnect pairing can be established without the optional target chain.
-  // The client must never treat that as approval to sign target-chain transactions.
+  // A restored or incomplete session must explicitly authorize the target chain.
+  // Network setup cannot substitute for WalletConnect session approval.
   if (!approvedWalletConnectChain(activeProvider)) {
     walletState.chainOk = false;
     walletState.signer = null;
@@ -1898,7 +1981,8 @@ async function ensureCorrectNetworkNow({ interactive = true, addFirst = false } 
       assertCurrentConnection();
     };
     let added = false;
-    if (addFirst && walletState.connectionType !== 'walletconnect') {
+    if (addFirst && (walletState.connectionType !== 'walletconnect' ||
+        activeProvider.session?.namespaces?.eip155?.methods?.includes('wallet_addEthereumChain'))) {
       try {
         // EIP-3085 permits adding an already-known chain. Do not depend on a
         // particular wallet returning 4902 before offering BOT configuration.
@@ -1914,6 +1998,10 @@ async function ensureCorrectNetworkNow({ interactive = true, addFirst = false } 
       current = await currentWalletChain(activeProvider);
       assertCurrentConnection();
     }
+    if (current !== target && walletState.connectionType === 'walletconnect' &&
+        !activeProvider.session?.namespaces?.eip155?.methods?.includes('wallet_switchEthereumChain')) {
+      throw new Error(`Select ${CONFIG.chainName} in your wallet, or reconnect and approve network switching.`);
+    }
     try {
       if (current !== target) await activeProvider.request({
         method: 'wallet_switchEthereumChain',
@@ -1921,9 +2009,12 @@ async function ensureCorrectNetworkNow({ interactive = true, addFirst = false } 
       });
     } catch (switchErr) {
       assertCurrentConnection();
-      // Never add a new chain to a WalletConnect session: session namespaces
-      // must already have been approved by the wallet itself.
-      if (walletState.connectionType === 'walletconnect') throw normalizeRpcError(switchErr);
+      // Target-chain session approval was checked above. Add the network only
+      // when this WalletConnect session explicitly permits the add-chain method.
+      if (walletState.connectionType === 'walletconnect' &&
+          !activeProvider.session?.namespaces?.eip155?.methods?.includes('wallet_addEthereumChain')) {
+        throw normalizeRpcError(switchErr);
+      }
       if (!isMissingChainError(switchErr)) throw normalizeRpcError(switchErr);
 
       if (added) throw normalizeRpcError(switchErr, `Network was added but switching failed.`);
@@ -1958,7 +2049,7 @@ async function ensureCorrectNetworkNow({ interactive = true, addFirst = false } 
     if (attempt < 15) await new Promise((resolve) => window.setTimeout(resolve, 200));
   }
 
-  walletState.chainOk = current === target;
+  walletState.chainOk = current === target && approvedWalletConnectChain(activeProvider);
   if (!walletState.chainOk) {
     walletState.signer = null;
     walletState.contract = null;
